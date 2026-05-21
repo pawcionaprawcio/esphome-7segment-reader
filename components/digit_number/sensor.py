@@ -1,10 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor, esp32_camera
-from esphome.const import (
-    CONF_ID,
-    STATE_CLASS_MEASUREMENT,
-)
+from esphome.const import STATE_CLASS_MEASUREMENT
 from . import digit_number_ns, DigitNumber
 
 CONF_CAMERA_ID = "camera_id"
