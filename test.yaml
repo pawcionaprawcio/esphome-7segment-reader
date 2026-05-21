@@ -1,0 +1,47 @@
+esphome:
+  name: digit-test
+  platform: ESP32
+  board: esp32cam
+
+external_components:
+  - source:
+      type: local
+      path: .
+    components: [digit_number]
+
+esp32_camera:
+  id: my_camera
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  pixel_format: GRAYSCALE
+  resolution: SVGA
+
+sensor:
+  - platform: digit_number
+    name: "Distance"
+    camera_id: my_camera
+    update_interval: 2s
+    sample_radius: 2
+    threshold: auto
+    display_off_threshold: 10
+    digits:
+      - a: [195, 175]
+        g: [195, 220]
+        b: [250, 197]
+      - a: [285, 175]
+        g: [285, 220]
+        b: [340, 197]
+      - a: [375, 175]
+        g: [375, 220]
+        b: [430, 197]
+      - a: [460, 175]
+        g: [460, 220]
+        b: [515, 197]
