@@ -94,11 +94,13 @@ void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> imag
     return;
   }
 
-  // Sample all 28 brightness values (4 digits x 7 segments)
-  uint8_t brightness[4][7];
+  const int num_digits = (int)digits_.size();
+
+  // Sample brightness for all digits x 7 segments
+  std::vector<std::array<uint8_t, 7>> brightness(num_digits);
   uint8_t global_max = 0;
 
-  for (int d = 0; d < 4; d++) {
+  for (int d = 0; d < num_digits; d++) {
     const DigitGeometry geo = derive_geometry_(digits_[d]);
     for (int s = 0; s < 7; s++) {
       brightness[d][s] = sample_brightness_(fb, geo.seg[s].x, geo.seg[s].y);
@@ -119,7 +121,7 @@ void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> imag
   uint8_t thresh;
   if (threshold_ < 0) {
     uint8_t global_min = 255;
-    for (int d = 0; d < 4; d++)
+    for (int d = 0; d < num_digits; d++)
       for (int s = 0; s < 7; s++)
         if (brightness[d][s] < global_min)
           global_min = brightness[d][s];
@@ -132,7 +134,7 @@ void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> imag
   int32_t value = 0;
   const int32_t multipliers[4] = {1000, 100, 10, 1};
 
-  for (int d = 0; d < 4; d++) {
+  for (int d = 0; d < num_digits; d++) {
     uint8_t bitmask = 0;
     for (int s = 0; s < 7; s++) {
       if (brightness[d][s] >= thresh)
