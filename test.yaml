@@ -29,19 +29,21 @@ sensor:
     name: "Distance"
     camera_id: my_camera
     update_interval: 2s
-    sample_radius: 2
+    sample_radius: 4
     threshold: auto
-    display_off_threshold: 10
+    display_off_threshold: 20
     digits:
-      - a: [195, 175]
-        g: [195, 220]
-        b: 250
-      - a: [285, 175]
-        g: [285, 220]
-        b: 340
-      - a: [375, 175]
-        g: [375, 220]
-        b: 430
-      - a: [460, 175]
-        g: [460, 220]
+      # Calibrated for test_cases/size_2 (640x480 close-up, lower display row)
+      # Adjust these for your specific camera position and display framing.
+      - a: [105, 143]
+        g: [105, 249]
+        b: 140
+      - a: [230, 143]
+        g: [230, 249]
+        b: 265
+      - a: [362, 143]
+        g: [362, 249]
+        b: 398
+      - a: [485, 143]
+        g: [485, 249]
         b: 515

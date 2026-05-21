@@ -1,13 +1,15 @@
 """
-Validation script: run Python equivalent of the C++ pipeline against test_cases/*.jpg.
+Validation script: run the Python equivalent of the C++ pipeline against test images.
 
 Usage:
-    python tests/validate.py
+    python tests/validate.py                        # defaults to test_cases/size_2
+    python tests/validate.py --dir test_cases/size_1
     python tests/validate.py --debug
+    python tests/validate.py --dir /path/to/images --debug
 
-CALIBRATION REQUIRED: Fill in the coords for your specific camera/display setup.
-The coords below are rough starting estimates from visual inspection.
-Run with --debug to see brightness values per segment and adjust coords.
+CALIBRATION: The coords below are calibrated for test_cases/size_2 (640x480, close-up).
+For your own camera setup, run with --debug to see per-segment brightness values, then
+adjust DIGIT_ANCHORS until all images decode correctly.
 """
 
 import sys
@@ -58,7 +60,7 @@ def decode_digit(bitmask):
     return None
 
 
-def sample_brightness(pixels, width, height, cx, cy, radius=2):
+def sample_brightness(pixels, width, height, cx, cy, radius=4):
     total, count = 0, 0
     for dy in range(-radius, radius + 1):
         for dx in range(-radius, radius + 1):
@@ -71,28 +73,34 @@ def sample_brightness(pixels, width, height, cx, cy, radius=2):
 
 
 # ── CALIBRATION SECTION ──────────────────────────────────────────────────────
-# Fill in pixel coords for YOUR camera+display setup.
-# a = center of top horizontal segment [x, y]
-# g = center of middle horizontal segment [x, y]
-# bx = x coordinate of top-right vertical segment center
-# These are rough estimates — run with --debug and adjust.
+# Calibrated for test_cases/size_2 (640x480 close-up, lower row of display).
+#
+# To calibrate for your own setup:
+#   1. Save a camera snapshot (enable esp32_camera_web_server in ESPHome)
+#   2. Open in any image editor, note coords for each digit:
+#      a  = [x, y] of the TOP HORIZONTAL segment center
+#      g  = [x, y] of the MIDDLE HORIZONTAL segment center
+#      bx = x of the TOP-RIGHT VERTICAL segment center
+#   3. Run:  python tests/validate.py --debug
+#   4. Adjust until all digits decode correctly
+
 DIGIT_ANCHORS = [
     # digit 0 (leftmost)
-    {"a": (195, 175), "g": (195, 220), "bx": 250},
+    {"a": (105, 143), "g": (105, 249), "bx": 140},
     # digit 1
-    {"a": (285, 175), "g": (285, 220), "bx": 340},
+    {"a": (230, 143), "g": (230, 249), "bx": 265},
     # digit 2
-    {"a": (375, 175), "g": (375, 220), "bx": 430},
+    {"a": (362, 143), "g": (362, 249), "bx": 398},
     # digit 3 (rightmost)
-    {"a": (460, 175), "g": (460, 220), "bx": 515},
+    {"a": (485, 143), "g": (485, 249), "bx": 515},
 ]
-SAMPLE_RADIUS = 2
-DISPLAY_OFF_THRESHOLD = 10
+SAMPLE_RADIUS = 4
+DISPLAY_OFF_THRESHOLD = 20
 # ─────────────────────────────────────────────────────────────────────────────
 
 
 def process_image(path, debug=False):
-    img = Image.open(path).convert("L")  # grayscale
+    img = Image.open(path).convert("L")
     pixels = img.load()
     w, h = img.size
 
@@ -111,10 +119,13 @@ def process_image(path, debug=False):
     global_min = min(all_bright)
 
     if global_max < DISPLAY_OFF_THRESHOLD:
-        print(f"  {path.name}: DISPLAY OFF")
+        if debug:
+            print(f"  DISPLAY OFF (max brightness {global_max} < {DISPLAY_OFF_THRESHOLD})")
         return None
 
     thresh = (global_min + global_max) // 2
+    if debug:
+        print(f"  thresh={thresh} (min={global_min} max={global_max})")
 
     digits = []
     for d, bright in enumerate(digit_segments):
@@ -123,7 +134,8 @@ def process_image(path, debug=False):
         if debug:
             print(f"  digit {d}: bright={bright} bitmask={bin(bitmask)} thresh={thresh} -> {digit}")
         if digit is None:
-            print(f"  {path.name}: UNKNOWN bitmask {bin(bitmask)} for digit {d}")
+            if not debug:
+                print(f"  {path.name}: UNKNOWN bitmask {bin(bitmask)} for digit {d}")
             return None
         digits.append(digit)
 
@@ -134,18 +146,30 @@ def process_image(path, debug=False):
 def main():
     parser = argparse.ArgumentParser(description="Validate digit_number detection against test images")
     parser.add_argument("--debug", action="store_true", help="Show per-segment brightness values")
+    parser.add_argument("--dir", default=None,
+                        help="Directory containing .jpg images (default: test_cases/size_2)")
     args = parser.parse_args()
 
-    test_dir = Path(__file__).parent.parent / "test_cases"
+    if args.dir:
+        test_dir = Path(args.dir)
+    else:
+        test_dir = Path(__file__).parent.parent / "test_cases" / "size_2"
+
     images = sorted(test_dir.glob("*.jpg"))
 
     if not images:
-        print("No images found in test_cases/")
+        print(f"No .jpg images found in {test_dir}")
         sys.exit(1)
 
+    print(f"Processing {len(images)} images from {test_dir}")
     for img_path in images:
+        if args.debug:
+            print(f"\n{img_path.name}:")
         result = process_image(img_path, debug=args.debug)
-        print(f"{img_path.name}: {result} mm")
+        if result is None:
+            print(f"{img_path.name}: None (display off or unknown pattern)")
+        else:
+            print(f"{img_path.name}: {result} mm")
 
 
 if __name__ == "__main__":
