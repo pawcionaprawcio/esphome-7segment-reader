@@ -80,8 +80,8 @@ void DigitNumber::setup() {
   camera_->add_image_callback([this](std::shared_ptr<esp32_camera::CameraImage> image) {
     const uint32_t now = millis();
     if (now - last_publish_ms_ >= update_interval_ms_) {
-      process_image_(image);
       last_publish_ms_ = now;
+      process_image_(image);
     }
   });
 }
