@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import sensor, esp32_camera
+from esphome.components import sensor, esp32_camera, text_sensor
 from esphome.const import STATE_CLASS_MEASUREMENT
 from . import digit_number_ns, DigitNumber
 
@@ -13,6 +13,7 @@ CONF_UPDATE_INTERVAL = "update_interval"
 CONF_FRAME_WIDTH = "frame_width"
 CONF_FRAME_HEIGHT = "frame_height"
 CONF_LAST_SUCCESSFUL_READ = "last_successful_read"
+CONF_LAST_STATE = "last_state"
 
 DigitAnchors = digit_number_ns.struct("DigitAnchors")
 
@@ -49,6 +50,9 @@ CONFIG_SCHEMA = (
             state_class=STATE_CLASS_MEASUREMENT,
             icon="mdi:clock-alert-outline",
         ),
+        cv.Optional(CONF_LAST_STATE): text_sensor.text_sensor_schema(
+            icon="mdi:information-outline",
+        ),
     })
 )
 
@@ -84,3 +88,7 @@ async def to_code(config):
     if CONF_LAST_SUCCESSFUL_READ in config:
         stale = await sensor.new_sensor(config[CONF_LAST_SUCCESSFUL_READ])
         cg.add(var.set_staleness_sensor(stale))
+
+    if CONF_LAST_STATE in config:
+        ts = await text_sensor.new_text_sensor(config[CONF_LAST_STATE])
+        cg.add(var.set_last_state_sensor(ts))
