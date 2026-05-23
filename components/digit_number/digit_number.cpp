@@ -80,6 +80,7 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
 }
 
 void DigitNumber::setup() {
+  last_valid_ms_ = millis();
   static_cast<camera::Camera *>(camera_)->add_listener(this);
 }
 
@@ -133,6 +134,8 @@ void DigitNumber::process_image_() {
   if (global_max < display_off_threshold_) {
     ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
     publish_state(last_valid_);
+    if (staleness_sensor_)
+      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
     return;
   }
 
@@ -162,6 +165,8 @@ void DigitNumber::process_image_() {
     if (digit < 0) {
       ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmask, d);
       publish_state(last_valid_);
+      if (staleness_sensor_)
+        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
       return;
     }
     value += digit * multipliers[d];
@@ -169,7 +174,10 @@ void DigitNumber::process_image_() {
 
   ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
   last_valid_ = (float)value;
+  last_valid_ms_ = millis();
   publish_state(last_valid_);
+  if (staleness_sensor_)
+    staleness_sensor_->publish_state(0.0f);
 }
 
 }  // namespace digit_number

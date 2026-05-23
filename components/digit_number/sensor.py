@@ -12,6 +12,7 @@ CONF_DISPLAY_OFF_THRESHOLD = "display_off_threshold"
 CONF_UPDATE_INTERVAL = "update_interval"
 CONF_FRAME_WIDTH = "frame_width"
 CONF_FRAME_HEIGHT = "frame_height"
+CONF_LAST_SUCCESSFUL_READ = "last_successful_read"
 
 DigitAnchors = digit_number_ns.struct("DigitAnchors")
 
@@ -42,6 +43,11 @@ CONFIG_SCHEMA = (
         ),
         cv.Optional(CONF_DISPLAY_OFF_THRESHOLD, default=10): cv.uint8_t,
         cv.Optional(CONF_UPDATE_INTERVAL, default="5s"): cv.update_interval,
+        cv.Optional(CONF_LAST_SUCCESSFUL_READ): sensor.sensor_schema(
+            unit_of_measurement="s",
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+        ),
     })
 )
 
@@ -73,3 +79,7 @@ async def to_code(config):
     cg.add(var.set_threshold(-1 if threshold == "auto" else int(threshold)))
 
     cg.add(var.set_display_off_threshold(config[CONF_DISPLAY_OFF_THRESHOLD]))
+
+    if CONF_LAST_SUCCESSFUL_READ in config:
+        stale = await sensor.new_sensor(config[CONF_LAST_SUCCESSFUL_READ])
+        cg.add(var.set_staleness_sensor(stale))

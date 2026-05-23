@@ -30,6 +30,7 @@ struct DigitGeometry {
 class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
+  void set_staleness_sensor(sensor::Sensor *s) { staleness_sensor_ = s; }
   void set_frame_width(uint16_t w) { (void)w; }   // kept for config compat, fb->width used
   void set_frame_height(uint16_t h) { (void)h; }  // kept for config compat, fb->height used
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
@@ -51,6 +52,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void process_image_();
 
   esp32_camera::ESP32Camera *camera_{nullptr};
+  sensor::Sensor *staleness_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
   uint8_t sample_radius_{2};
   int threshold_{-1};
@@ -58,6 +60,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t update_interval_ms_{5000};
   uint32_t last_publish_ms_{0};
   float last_valid_{NAN};
+  uint32_t last_valid_ms_{0};
 
   static const uint8_t SEGMENT_PATTERNS_[10];
 };
