@@ -1,5 +1,7 @@
 #include "digit_number.h"
 #include "esphome/core/log.h"
+#include "img_converters.h"
+#include <cstdlib>
 
 namespace esphome {
 namespace digit_number {
@@ -41,7 +43,7 @@ DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
 }
 
 uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh,
-                                        bool grayscale, uint16_t cx, uint16_t cy) const {
+                                        PixFmt fmt, uint16_t cx, uint16_t cy) const {
   uint32_t sum = 0;
   uint16_t count = 0;
   const int r = sample_radius_;
@@ -53,16 +55,19 @@ uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_
       if (x < 0 || x >= (int)fw || y < 0 || y >= (int)fh)
         continue;
 
-      if (grayscale) {
+      if (fmt == PixFmt::GRAY) {
         sum += buf[y * fw + x];
-      } else {
-        // RGB565
+      } else if (fmt == PixFmt::RGB565) {
         const uint32_t offset = ((uint32_t)y * fw + x) * 2;
         const uint16_t pixel = ((uint16_t)buf[offset] << 8) | buf[offset + 1];
         const uint8_t rv = ((pixel >> 11) & 0x1F) << 3;
         const uint8_t gv = ((pixel >> 5)  & 0x3F) << 2;
         const uint8_t bv = (pixel         & 0x1F) << 3;
         sum += (uint32_t)(rv * 30 + gv * 59 + bv * 11) / 100;
+      } else {
+        // RGB888
+        const uint32_t offset = ((uint32_t)y * fw + x) * 3;
+        sum += (uint32_t)(buf[offset] * 30 + buf[offset + 1] * 59 + buf[offset + 2] * 11) / 100;
       }
       count++;
     }
@@ -94,18 +99,38 @@ void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
   const uint8_t *buf = image->get_data_buffer();
   const size_t len   = image->get_data_length();
 
-  const size_t expected_gray  = (size_t)frame_width_ * frame_height_;
-  const size_t expected_rgb565 = expected_gray * 2;
+  const uint8_t *pixel_buf = buf;
+  PixFmt fmt;
+  uint8_t *decoded = nullptr;
 
-  bool grayscale;
-  if (len == expected_gray) {
-    grayscale = true;
-  } else if (len == expected_rgb565) {
-    grayscale = false;
+  const bool is_jpeg = (len >= 2 && buf[0] == 0xFF && buf[1] == 0xD8);
+
+  if (is_jpeg) {
+    const size_t rgb_len = (size_t)frame_width_ * frame_height_ * 3;
+    decoded = (uint8_t *)malloc(rgb_len);
+    if (!decoded) {
+      ESP_LOGE(TAG, "OOM: cannot allocate %zu bytes for JPEG decode", rgb_len);
+      return;
+    }
+    if (!jpg2rgb888(buf, len, decoded, JPG_SCALE_NONE)) {
+      ESP_LOGE(TAG, "JPEG decode failed");
+      free(decoded);
+      return;
+    }
+    pixel_buf = decoded;
+    fmt = PixFmt::RGB888;
   } else {
-    ESP_LOGE(TAG, "Unsupported image size %zu (expected %zu GRAY or %zu RGB565)",
-             len, expected_gray, expected_rgb565);
-    return;
+    const size_t expected_gray   = (size_t)frame_width_ * frame_height_;
+    const size_t expected_rgb565 = expected_gray * 2;
+    if (len == expected_gray) {
+      fmt = PixFmt::GRAY;
+    } else if (len == expected_rgb565) {
+      fmt = PixFmt::RGB565;
+    } else {
+      ESP_LOGE(TAG, "Unsupported image size %zu (expected %zu GRAY or %zu RGB565)",
+               len, expected_gray, expected_rgb565);
+      return;
+    }
   }
 
   const int num_digits = (int)digits_.size();
@@ -116,11 +141,16 @@ void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
   for (int d = 0; d < num_digits; d++) {
     const DigitGeometry geo = derive_geometry_(digits_[d]);
     for (int s = 0; s < 7; s++) {
-      brightness[d][s] = sample_brightness_(buf, frame_width_, frame_height_, grayscale,
+      brightness[d][s] = sample_brightness_(pixel_buf, frame_width_, frame_height_, fmt,
                                             geo.seg[s].x, geo.seg[s].y);
       if (brightness[d][s] > global_max)
         global_max = brightness[d][s];
     }
+  }
+
+  if (decoded) {
+    free(decoded);
+    decoded = nullptr;
   }
 
   if (global_max < display_off_threshold_) {

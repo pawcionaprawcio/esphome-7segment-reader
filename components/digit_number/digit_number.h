@@ -11,6 +11,8 @@
 namespace esphome {
 namespace digit_number {
 
+enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1, RGB888 = 2 };
+
 struct DigitAnchors {
   uint16_t ax, ay;  // top horizontal segment center
   uint16_t gx, gy;  // middle horizontal segment center
@@ -43,7 +45,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
 
  protected:
   DigitGeometry derive_geometry_(const DigitAnchors &a) const;
-  uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, bool grayscale,
+  uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, PixFmt fmt,
                              uint16_t cx, uint16_t cy) const;
   int8_t decode_digit_(uint8_t bitmask) const;
   void process_image_(std::shared_ptr<camera::CameraImage> image);
