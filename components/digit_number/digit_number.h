@@ -57,6 +57,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint8_t display_off_threshold_{10};
   uint32_t update_interval_ms_{5000};
   uint32_t last_publish_ms_{0};
+  float last_valid_{NAN};
 
   static const uint8_t SEGMENT_PATTERNS_[10];
 };

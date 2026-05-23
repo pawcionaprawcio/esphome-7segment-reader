@@ -132,7 +132,7 @@ void DigitNumber::process_image_() {
 
   if (global_max < display_off_threshold_) {
     ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
-    publish_state(NAN);
+    publish_state(last_valid_);
     return;
   }
 
@@ -161,14 +161,15 @@ void DigitNumber::process_image_() {
     ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmask, thresh, digit);
     if (digit < 0) {
       ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmask, d);
-      publish_state(NAN);
+      publish_state(last_valid_);
       return;
     }
     value += digit * multipliers[d];
   }
 
   ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
-  publish_state((float)value);
+  last_valid_ = (float)value;
+  publish_state(last_valid_);
 }
 
 }  // namespace digit_number
