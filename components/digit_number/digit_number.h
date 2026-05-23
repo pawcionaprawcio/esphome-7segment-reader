@@ -11,7 +11,7 @@
 namespace esphome {
 namespace digit_number {
 
-enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1, RGB888 = 2 };
+enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1 };
 
 struct DigitAnchors {
   uint16_t ax, ay;  // top horizontal segment center
@@ -30,8 +30,8 @@ struct DigitGeometry {
 class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
-  void set_frame_width(uint16_t w) { frame_width_ = w; }
-  void set_frame_height(uint16_t h) { frame_height_ = h; }
+  void set_frame_width(uint16_t w) { (void)w; }   // kept for config compat, fb->width used
+  void set_frame_height(uint16_t h) { (void)h; }  // kept for config compat, fb->height used
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
   void set_threshold(int t) { threshold_ = t; }           // -1 = auto
@@ -48,11 +48,9 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, PixFmt fmt,
                              uint16_t cx, uint16_t cy) const;
   int8_t decode_digit_(uint8_t bitmask) const;
-  void process_image_(std::shared_ptr<camera::CameraImage> image);
+  void process_image_();
 
   esp32_camera::ESP32Camera *camera_{nullptr};
-  uint16_t frame_width_{800};
-  uint16_t frame_height_{600};
   std::vector<DigitAnchors> digits_;
   uint8_t sample_radius_{2};
   int threshold_{-1};

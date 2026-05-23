@@ -1,7 +1,6 @@
 #include "digit_number.h"
 #include "esphome/core/log.h"
-#include "img_converters.h"
-#include <cstdlib>
+#include "esp_camera.h"
 
 namespace esphome {
 namespace digit_number {
@@ -57,17 +56,14 @@ uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_
 
       if (fmt == PixFmt::GRAY) {
         sum += buf[y * fw + x];
-      } else if (fmt == PixFmt::RGB565) {
+      } else {
+        // RGB565
         const uint32_t offset = ((uint32_t)y * fw + x) * 2;
         const uint16_t pixel = ((uint16_t)buf[offset] << 8) | buf[offset + 1];
         const uint8_t rv = ((pixel >> 11) & 0x1F) << 3;
         const uint8_t gv = ((pixel >> 5)  & 0x3F) << 2;
         const uint8_t bv = (pixel         & 0x1F) << 3;
         sum += (uint32_t)(rv * 30 + gv * 59 + bv * 11) / 100;
-      } else {
-        // RGB888
-        const uint32_t offset = ((uint32_t)y * fw + x) * 3;
-        sum += (uint32_t)(buf[offset] * 30 + buf[offset + 1] * 59 + buf[offset + 2] * 11) / 100;
       }
       count++;
     }
@@ -87,52 +83,37 @@ void DigitNumber::setup() {
   static_cast<camera::Camera *>(camera_)->add_listener(this);
 }
 
-void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> &image) {
+void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
   const uint32_t now = millis();
   if (now - last_publish_ms_ >= update_interval_ms_) {
     last_publish_ms_ = now;
-    process_image_(image);
+    process_image_();
   }
 }
 
-void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
-  const uint8_t *buf = image->get_data_buffer();
-  const size_t len   = image->get_data_length();
-
-  const uint8_t *pixel_buf = buf;
-  PixFmt fmt;
-  uint8_t *decoded = nullptr;
-
-  const bool is_jpeg = (len >= 2 && buf[0] == 0xFF && buf[1] == 0xD8);
-
-  if (is_jpeg) {
-    const size_t rgb_len = (size_t)frame_width_ * frame_height_ * 2;
-    decoded = (uint8_t *)malloc(rgb_len);
-    if (!decoded) {
-      ESP_LOGE(TAG, "OOM: cannot allocate %zu bytes for JPEG decode", rgb_len);
-      return;
-    }
-    if (!jpg2rgb565(buf, len, decoded, JPG_SCALE_NONE)) {
-      ESP_LOGE(TAG, "JPEG decode failed");
-      free(decoded);
-      return;
-    }
-    pixel_buf = decoded;
-    fmt = PixFmt::RGB565;
-  } else {
-    const size_t expected_gray   = (size_t)frame_width_ * frame_height_;
-    const size_t expected_rgb565 = expected_gray * 2;
-    if (len == expected_gray) {
-      fmt = PixFmt::GRAY;
-    } else if (len == expected_rgb565) {
-      fmt = PixFmt::RGB565;
-    } else {
-      ESP_LOGE(TAG, "Unsupported image size %zu (expected %zu GRAY or %zu RGB565)",
-               len, expected_gray, expected_rgb565);
-      return;
-    }
+void DigitNumber::process_image_() {
+  // Get raw frame directly — CameraListener delivers JPEG which ESP32 hardware
+  // decoder cannot decode for grayscale format. Raw fb has actual pixel data.
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    ESP_LOGE(TAG, "esp_camera_fb_get failed");
+    return;
   }
 
+  PixFmt fmt;
+  if (fb->format == PIXFORMAT_GRAYSCALE) {
+    fmt = PixFmt::GRAY;
+  } else if (fb->format == PIXFORMAT_RGB565) {
+    fmt = PixFmt::RGB565;
+  } else {
+    ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
+    esp_camera_fb_return(fb);
+    return;
+  }
+
+  const uint8_t *buf = fb->buf;
+  const uint16_t fw  = (uint16_t)fb->width;
+  const uint16_t fh  = (uint16_t)fb->height;
   const int num_digits = (int)digits_.size();
 
   std::vector<std::array<uint8_t, 7>> brightness(num_digits);
@@ -141,21 +122,16 @@ void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
   for (int d = 0; d < num_digits; d++) {
     const DigitGeometry geo = derive_geometry_(digits_[d]);
     for (int s = 0; s < 7; s++) {
-      brightness[d][s] = sample_brightness_(pixel_buf, frame_width_, frame_height_, fmt,
-                                            geo.seg[s].x, geo.seg[s].y);
+      brightness[d][s] = sample_brightness_(buf, fw, fh, fmt, geo.seg[s].x, geo.seg[s].y);
       if (brightness[d][s] > global_max)
         global_max = brightness[d][s];
     }
   }
 
-  if (decoded) {
-    free(decoded);
-    decoded = nullptr;
-  }
+  esp_camera_fb_return(fb);
 
   if (global_max < display_off_threshold_) {
-    ESP_LOGW(TAG, "Display off or no signal (max brightness %d < %d)",
-             global_max, display_off_threshold_);
+    ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
     publish_state(NAN);
     return;
   }
@@ -182,8 +158,7 @@ void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
         bitmask |= (1 << s);
     }
     const int8_t digit = decode_digit_(bitmask);
-    ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d",
-             d, bitmask, thresh, digit);
+    ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmask, thresh, digit);
     if (digit < 0) {
       ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmask, d);
       publish_state(NAN);
