@@ -47,6 +47,7 @@ CONFIG_SCHEMA = (
             unit_of_measurement="s",
             accuracy_decimals=0,
             state_class=STATE_CLASS_MEASUREMENT,
+            icon="mdi:clock-alert-outline",
         ),
     })
 )
