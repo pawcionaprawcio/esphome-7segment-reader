@@ -106,19 +106,19 @@ void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
   const bool is_jpeg = (len >= 2 && buf[0] == 0xFF && buf[1] == 0xD8);
 
   if (is_jpeg) {
-    const size_t rgb_len = (size_t)frame_width_ * frame_height_ * 3;
+    const size_t rgb_len = (size_t)frame_width_ * frame_height_ * 2;
     decoded = (uint8_t *)malloc(rgb_len);
     if (!decoded) {
       ESP_LOGE(TAG, "OOM: cannot allocate %zu bytes for JPEG decode", rgb_len);
       return;
     }
-    if (!jpg2rgb888(buf, len, decoded, JPG_SCALE_NONE)) {
+    if (!jpg2rgb565(buf, len, decoded, JPG_SCALE_NONE)) {
       ESP_LOGE(TAG, "JPEG decode failed");
       free(decoded);
       return;
     }
     pixel_buf = decoded;
-    fmt = PixFmt::RGB888;
+    fmt = PixFmt::RGB565;
   } else {
     const size_t expected_gray   = (size_t)frame_width_ * frame_height_;
     const size_t expected_rgb565 = expected_gray * 2;
