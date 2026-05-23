@@ -60,6 +60,36 @@ def decode_digit(bitmask):
     return None
 
 
+DASH_BITMASK = 0b1000000  # segment g only — kreska (dash); verified against size_3/kreski.jpg
+
+
+def determine_state(all_bright, digit_segments, display_off_threshold=20):
+    """Mirror C++ last_state logic. Returns (state, value_or_None).
+
+    States:
+      'off'   — global_max < display_off_threshold
+      'ready' — all 4 digits have DASH_BITMASK (segment g only)
+      'ok'    — all 4 digits decode to 0-9; value is the mm integer
+      'fail'  — any other case (unknown bitmask, not dash)
+    """
+    gmax = max(all_bright)
+    if gmax < display_off_threshold:
+        return "off", None
+    gmin = min(all_bright)
+    thresh = (gmin + gmax) // 2
+    bitmasks = [
+        sum((1 << i) for i, b in enumerate(bright) if b >= thresh)
+        for bright in digit_segments
+    ]
+    if all(b == DASH_BITMASK for b in bitmasks):
+        return "ready", None
+    digits = [decode_digit(b) for b in bitmasks]
+    if all(d is not None for d in digits):
+        value = digits[0] * 1000 + digits[1] * 100 + digits[2] * 10 + digits[3]
+        return "ok", value
+    return "fail", None
+
+
 def sample_brightness(pixels, width, height, cx, cy, radius=4):
     total, count = 0, 0
     for dy in range(-radius, radius + 1):
