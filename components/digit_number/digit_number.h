@@ -34,7 +34,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
   void set_threshold(int t) { threshold_ = t; }           // -1 = auto
   void set_display_off_threshold(uint8_t t) { display_off_threshold_ = t; }
-  void set_update_interval_ms(uint32_t ms) { update_interval_ms_ = ms; }
+  void set_update_interval(uint32_t ms) { update_interval_ms_ = ms; }
 
   void setup() override;
   float get_setup_priority() const override { return setup_priority::DATA; }

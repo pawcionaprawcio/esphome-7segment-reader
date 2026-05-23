@@ -73,6 +73,3 @@ async def to_code(config):
     cg.add(var.set_threshold(-1 if threshold == "auto" else int(threshold)))
 
     cg.add(var.set_display_off_threshold(config[CONF_DISPLAY_OFF_THRESHOLD]))
-
-    interval_ms = int(config[CONF_UPDATE_INTERVAL].total_milliseconds)
-    cg.add(var.set_update_interval_ms(interval_ms))
