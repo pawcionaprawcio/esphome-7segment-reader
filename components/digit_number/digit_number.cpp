@@ -93,8 +93,6 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
 }
 
 void DigitNumber::process_image_() {
-  // Get raw frame directly — CameraListener delivers JPEG which ESP32 hardware
-  // decoder cannot decode for grayscale format. Raw fb has actual pixel data.
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "esp_camera_fb_get failed");
@@ -136,6 +134,8 @@ void DigitNumber::process_image_() {
     publish_state(last_valid_);
     if (staleness_sensor_)
       staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+    if (last_state_sensor_)
+      last_state_sensor_->publish_state("off");
     return;
   }
 
@@ -151,22 +151,45 @@ void DigitNumber::process_image_() {
     thresh = (uint8_t)threshold_;
   }
 
+  std::vector<uint8_t> bitmasks(num_digits);
+  for (int d = 0; d < num_digits; d++) {
+    uint8_t bm = 0;
+    for (int s = 0; s < 7; s++) {
+      if (brightness[d][s] >= thresh)
+        bm |= (1 << s);
+    }
+    bitmasks[d] = bm;
+  }
+
+  // Check "ready": all digits show dash (segment g only)
+  bool all_dash = true;
+  for (int d = 0; d < num_digits; d++) {
+    if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
+  }
+  if (all_dash) {
+    ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d)", thresh);
+    publish_state(last_valid_);
+    if (staleness_sensor_)
+      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+    if (last_state_sensor_)
+      last_state_sensor_->publish_state("ready");
+    return;
+  }
+
+  // Decode digits
   int32_t value = 0;
   const int32_t multipliers[4] = {1000, 100, 10, 1};
 
   for (int d = 0; d < num_digits; d++) {
-    uint8_t bitmask = 0;
-    for (int s = 0; s < 7; s++) {
-      if (brightness[d][s] >= thresh)
-        bitmask |= (1 << s);
-    }
-    const int8_t digit = decode_digit_(bitmask);
-    ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmask, thresh, digit);
+    const int8_t digit = decode_digit_(bitmasks[d]);
+    ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmasks[d], thresh, digit);
     if (digit < 0) {
-      ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmask, d);
+      ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmasks[d], d);
       publish_state(last_valid_);
       if (staleness_sensor_)
         staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+      if (last_state_sensor_)
+        last_state_sensor_->publish_state("fail");
       return;
     }
     value += digit * multipliers[d];
@@ -178,6 +201,8 @@ void DigitNumber::process_image_() {
   publish_state(last_valid_);
   if (staleness_sensor_)
     staleness_sensor_->publish_state(0.0f);
+  if (last_state_sensor_)
+    last_state_sensor_->publish_state("ok");
 }
 
 }  // namespace digit_number

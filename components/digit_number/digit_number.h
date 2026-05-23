@@ -5,6 +5,7 @@
 #include <vector>
 #include "esphome/core/component.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/camera/camera.h"
 #include "esphome/components/esp32_camera/esp32_camera.h"
 
@@ -31,11 +32,12 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
   void set_staleness_sensor(sensor::Sensor *s) { staleness_sensor_ = s; }
-  void set_frame_width(uint16_t w) { (void)w; }   // kept for config compat, fb->width used
-  void set_frame_height(uint16_t h) { (void)h; }  // kept for config compat, fb->height used
+  void set_last_state_sensor(text_sensor::TextSensor *s) { last_state_sensor_ = s; }
+  void set_frame_width(uint16_t w) { (void)w; }
+  void set_frame_height(uint16_t h) { (void)h; }
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
-  void set_threshold(int t) { threshold_ = t; }           // -1 = auto
+  void set_threshold(int t) { threshold_ = t; }
   void set_display_off_threshold(uint8_t t) { display_off_threshold_ = t; }
   void set_update_interval(uint32_t ms) { update_interval_ms_ = ms; }
 
@@ -53,6 +55,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
 
   esp32_camera::ESP32Camera *camera_{nullptr};
   sensor::Sensor *staleness_sensor_{nullptr};
+  text_sensor::TextSensor *last_state_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
   uint8_t sample_radius_{2};
   int threshold_{-1};
@@ -63,6 +66,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t last_valid_ms_{0};
 
   static const uint8_t SEGMENT_PATTERNS_[10];
+  static const uint8_t DASH_BITMASK_ = 0b1000000;  // segment g only
 };
 
 }  // namespace digit_number
