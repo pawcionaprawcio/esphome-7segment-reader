@@ -40,7 +40,8 @@ DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
   return geo;
 }
 
-uint8_t DigitNumber::sample_brightness_(const camera_fb_t *fb, uint16_t cx, uint16_t cy) const {
+uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh,
+                                        bool grayscale, uint16_t cx, uint16_t cy) const {
   uint32_t sum = 0;
   uint16_t count = 0;
   const int r = sample_radius_;
@@ -49,14 +50,15 @@ uint8_t DigitNumber::sample_brightness_(const camera_fb_t *fb, uint16_t cx, uint
     for (int dx = -r; dx <= r; dx++) {
       const int x = (int)cx + dx;
       const int y = (int)cy + dy;
-      if (x < 0 || x >= (int)fb->width || y < 0 || y >= (int)fb->height)
+      if (x < 0 || x >= (int)fw || y < 0 || y >= (int)fh)
         continue;
 
-      if (fb->format == PIXFORMAT_GRAYSCALE) {
-        sum += fb->buf[y * fb->width + x];
-      } else if (fb->format == PIXFORMAT_RGB565) {
-        const uint32_t offset = ((uint32_t)y * fb->width + x) * 2;
-        const uint16_t pixel = ((uint16_t)fb->buf[offset] << 8) | fb->buf[offset + 1];
+      if (grayscale) {
+        sum += buf[y * fw + x];
+      } else {
+        // RGB565
+        const uint32_t offset = ((uint32_t)y * fw + x) * 2;
+        const uint16_t pixel = ((uint16_t)buf[offset] << 8) | buf[offset + 1];
         const uint8_t rv = ((pixel >> 11) & 0x1F) << 3;
         const uint8_t gv = ((pixel >> 5)  & 0x3F) << 2;
         const uint8_t bv = (pixel         & 0x1F) << 3;
@@ -77,39 +79,50 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
 }
 
 void DigitNumber::setup() {
-  camera_->add_image_callback([this](std::shared_ptr<esp32_camera::CameraImage> image) {
-    const uint32_t now = millis();
-    if (now - last_publish_ms_ >= update_interval_ms_) {
-      last_publish_ms_ = now;
-      process_image_(image);
-    }
-  });
+  static_cast<camera::Camera *>(camera_)->add_listener(this);
 }
 
-void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> image) {
-  const camera_fb_t *fb = image->get_raw_buffer();
+void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> &image) {
+  const uint32_t now = millis();
+  if (now - last_publish_ms_ >= update_interval_ms_) {
+    last_publish_ms_ = now;
+    process_image_(image);
+  }
+}
 
-  if (fb->format != PIXFORMAT_GRAYSCALE && fb->format != PIXFORMAT_RGB565) {
-    ESP_LOGE(TAG, "Unsupported pixel format. Use GRAYSCALE or RGB565.");
+void DigitNumber::process_image_(std::shared_ptr<camera::CameraImage> image) {
+  const uint8_t *buf = image->get_data_buffer();
+  const size_t len   = image->get_data_length();
+
+  const size_t expected_gray  = (size_t)frame_width_ * frame_height_;
+  const size_t expected_rgb565 = expected_gray * 2;
+
+  bool grayscale;
+  if (len == expected_gray) {
+    grayscale = true;
+  } else if (len == expected_rgb565) {
+    grayscale = false;
+  } else {
+    ESP_LOGE(TAG, "Unsupported image size %zu (expected %zu GRAY or %zu RGB565)",
+             len, expected_gray, expected_rgb565);
     return;
   }
 
   const int num_digits = (int)digits_.size();
 
-  // Sample brightness for all digits x 7 segments
   std::vector<std::array<uint8_t, 7>> brightness(num_digits);
   uint8_t global_max = 0;
 
   for (int d = 0; d < num_digits; d++) {
     const DigitGeometry geo = derive_geometry_(digits_[d]);
     for (int s = 0; s < 7; s++) {
-      brightness[d][s] = sample_brightness_(fb, geo.seg[s].x, geo.seg[s].y);
+      brightness[d][s] = sample_brightness_(buf, frame_width_, frame_height_, grayscale,
+                                            geo.seg[s].x, geo.seg[s].y);
       if (brightness[d][s] > global_max)
         global_max = brightness[d][s];
     }
   }
 
-  // Display-off detection
   if (global_max < display_off_threshold_) {
     ESP_LOGW(TAG, "Display off or no signal (max brightness %d < %d)",
              global_max, display_off_threshold_);
@@ -117,7 +130,6 @@ void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> imag
     return;
   }
 
-  // Determine threshold
   uint8_t thresh;
   if (threshold_ < 0) {
     uint8_t global_min = 255;
@@ -130,7 +142,6 @@ void DigitNumber::process_image_(std::shared_ptr<esp32_camera::CameraImage> imag
     thresh = (uint8_t)threshold_;
   }
 
-  // Decode digits
   int32_t value = 0;
   const int32_t multipliers[4] = {1000, 100, 10, 1};
 

@@ -10,6 +10,8 @@ CONF_SAMPLE_RADIUS = "sample_radius"
 CONF_THRESHOLD = "threshold"
 CONF_DISPLAY_OFF_THRESHOLD = "display_off_threshold"
 CONF_UPDATE_INTERVAL = "update_interval"
+CONF_FRAME_WIDTH = "frame_width"
+CONF_FRAME_HEIGHT = "frame_height"
 
 DigitAnchors = digit_number_ns.struct("DigitAnchors")
 
@@ -32,6 +34,8 @@ CONFIG_SCHEMA = (
             cv.ensure_list(DIGIT_SCHEMA),
             cv.Length(min=4, max=4, msg="Exactly 4 digits required"),
         ),
+        cv.Optional(CONF_FRAME_WIDTH, default=800): cv.uint16_t,
+        cv.Optional(CONF_FRAME_HEIGHT, default=600): cv.uint16_t,
         cv.Optional(CONF_SAMPLE_RADIUS, default=2): cv.uint8_t,
         cv.Optional(CONF_THRESHOLD, default="auto"): cv.Any(
             "auto", cv.int_range(min=0, max=255)
@@ -48,6 +52,9 @@ async def to_code(config):
 
     cam = await cg.get_variable(config[CONF_CAMERA_ID])
     cg.add(var.set_camera(cam))
+
+    cg.add(var.set_frame_width(config[CONF_FRAME_WIDTH]))
+    cg.add(var.set_frame_height(config[CONF_FRAME_HEIGHT]))
 
     for digit in config[CONF_DIGITS]:
         anchors = cg.StructInitializer(
