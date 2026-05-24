@@ -4,6 +4,8 @@ from esphome.components import sensor, esp32_camera, text_sensor
 from esphome.const import STATE_CLASS_MEASUREMENT
 from . import digit_number_ns, DigitNumber
 
+AUTO_LOAD = ["text_sensor"]
+
 CONF_CAMERA_ID = "camera_id"
 CONF_DIGITS = "digits"
 CONF_SAMPLE_RADIUS = "sample_radius"
