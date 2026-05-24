@@ -26,7 +26,7 @@ DIGIT_ANCHORS = [
     {"a": (603, 230), "g": (603, 357), "bx": 636},
 ]
 SAMPLE_RADIUS = 5
-DISPLAY_OFF_THRESHOLD = 20
+DISPLAY_OFF_THRESHOLD = 60  # sensor noise in darkness can reach ~54 at high gain
 ALL_ON_MIN = 100
 
 
@@ -45,7 +45,10 @@ def _best_threshold(bright):
 
 def decode_image(path):
     """Return integer mm value, or None for display-off/unknown-pattern."""
-    img = Image.open(path).convert("L")
+    try:
+        img = Image.open(path).convert("L")
+    except OSError:
+        return None  # truncated JPEG (e.g. incomplete file save) → treat as off
     pixels = img.load()
     w, h = img.size
 
@@ -76,9 +79,15 @@ def decode_image(path):
 
 # ── Edge cases: None results ─────────────────────────────────────────────────
 
-def test_display_off():
-    """Completely dark frame → None."""
-    assert decode_image(IMG_DIR / "off.jpg") is None
+@pytest.mark.parametrize("filename", [
+    "off.jpg",
+    "off2.jpg", "off3.jpg", "off4.jpg", "off5.jpg",
+    "off6.jpg", "off7.jpg", "off8.jpg", "off9.jpg",
+    "off10.jpg", "off11.jpg",
+])
+def test_display_off(filename):
+    """Dark/noisy frame (display off) → None."""
+    assert decode_image(IMG_DIR / filename) is None
 
 
 def test_dashes():
