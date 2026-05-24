@@ -161,6 +161,21 @@ void DigitNumber::process_image_() {
     bitmasks[d] = bm;
   }
 
+  // Check "off": all bitmasks zero means thresh > all segment brightnesses (uniform noise)
+  bool all_zero = true;
+  for (int d = 0; d < num_digits; d++) {
+    if (bitmasks[d] != 0) { all_zero = false; break; }
+  }
+  if (all_zero) {
+    ESP_LOGW(TAG, "All bitmasks zero (noise/dark, thresh=%d) → off", thresh);
+    publish_state(last_valid_);
+    if (staleness_sensor_)
+      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+    if (last_state_sensor_)
+      last_state_sensor_->publish_state("off");
+    return;
+  }
+
   // Check "ready": all digits show dash (segment g only)
   bool all_dash = true;
   for (int d = 0; d < num_digits; d++) {
