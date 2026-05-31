@@ -76,6 +76,14 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
     if (SEGMENT_PATTERNS_[i] == bitmask)
       return (int8_t)i;
   }
+  // 1-bit Hamming tolerance: accept if exactly one segment is borderline
+  for (int i = 0; i < 10; i++) {
+    const uint8_t diff = bitmask ^ SEGMENT_PATTERNS_[i];
+    if (diff && (diff & (diff - 1)) == 0) {
+      ESP_LOGW(TAG, "Fuzzy match 0x%02X -> digit %d (1-bit off, diff=0x%02X)", bitmask, i, diff);
+      return (int8_t)i;
+    }
+  }
   return -1;
 }
 
@@ -202,9 +210,12 @@ void DigitNumber::process_image_() {
 
     for (int d = 0; d < num_digits; d++) {
       const int8_t digit = decode_digit_(bitmasks[d]);
-      ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmasks[d], thresh, digit);
+      ESP_LOGD(TAG, "Digit %d: bitmask=0x%02X thresh=%d -> %d", d, bitmasks[d], thresh, (int)digit);
       if (digit < 0) {
-        ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmasks[d], d);
+        ESP_LOGW(TAG, "Unknown bitmask 0x%02X for digit %d (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
+                 bitmasks[d], d,
+                 brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
+                 brightness[d][4], brightness[d][5], brightness[d][6]);
         publish_state(last_valid_);
         if (staleness_sensor_)
           staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));

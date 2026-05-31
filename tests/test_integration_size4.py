@@ -150,6 +150,8 @@ def test_dashes():
     ("capture (17).jpg",  320),
     ("capture (18).jpg",  486),
     ("capture (19).jpg",  495),
+    ("capture (20).jpg",  837),
+    ("capture (21).jpg",  295),
 ])
 def test_decode(filename, expected_mm):
     result = decode_image(IMG_DIR / filename)
