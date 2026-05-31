@@ -182,8 +182,14 @@ void DigitNumber::process_image_() {
     if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
   }
   if (all_dash) {
-    ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d)", thresh);
-    last_publish_ms_ = millis() - update_interval_ms_ + ready_retry_delay_ms_;
+    if (!ready_retried_) {
+      ready_retried_ = true;
+      last_publish_ms_ = millis() - update_interval_ms_ + ready_retry_delay_ms_;
+      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) → retry in %dms", thresh, (int)ready_retry_delay_ms_);
+    } else {
+      ready_retried_ = false;
+      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) → retry already done, backing off", thresh);
+    }
     publish_state(last_valid_);
     if (staleness_sensor_)
       staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
@@ -201,6 +207,7 @@ void DigitNumber::process_image_() {
     ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmasks[d], thresh, digit);
     if (digit < 0) {
       ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmasks[d], d);
+      ready_retried_ = false;
       publish_state(last_valid_);
       if (staleness_sensor_)
         staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
@@ -212,6 +219,7 @@ void DigitNumber::process_image_() {
   }
 
   ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
+  ready_retried_ = false;
   last_valid_ = (float)value;
   last_valid_ms_ = millis();
   publish_state(last_valid_);

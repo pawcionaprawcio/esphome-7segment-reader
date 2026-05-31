@@ -64,6 +64,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t update_interval_ms_{5000};
   uint32_t ready_retry_delay_ms_{2000};
   uint32_t last_publish_ms_{0};
+  bool ready_retried_{false};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
 
