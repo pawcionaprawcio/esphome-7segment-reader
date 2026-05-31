@@ -183,7 +183,7 @@ void DigitNumber::process_image_() {
   }
   if (all_dash) {
     ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d)", thresh);
-    last_publish_ms_ = now - update_interval_ms_ + ready_retry_delay_ms_;
+    last_publish_ms_ = millis() - update_interval_ms_ + ready_retry_delay_ms_;
     publish_state(last_valid_);
     if (staleness_sensor_)
       staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
