@@ -1,6 +1,7 @@
 #include "digit_number.h"
 #include "esphome/core/log.h"
 #include "esp_camera.h"
+#include <algorithm>
 
 namespace esphome {
 namespace digit_number {
@@ -41,6 +42,19 @@ DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
   return geo;
 }
 
+uint8_t DigitNumber::max_gap_threshold_(const std::array<uint8_t, 7> &bright) {
+  if (*std::min_element(bright.begin(), bright.end()) > ALL_ON_MIN_)
+    return 0;  // all segments clearly ON (e.g. digit 8 with uniform backlight)
+  std::array<uint8_t, 7> s = bright;
+  std::sort(s.begin(), s.end());
+  uint8_t best_gap = 0, gap_pos = 0;
+  for (int i = 0; i < 6; i++) {
+    const uint8_t g = s[i + 1] - s[i];
+    if (g > best_gap) { best_gap = g; gap_pos = i; }
+  }
+  return (s[gap_pos] + s[gap_pos + 1]) / 2;
+}
+
 uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh,
                                         PixFmt fmt, uint16_t cx, uint16_t cy) const {
   uint32_t sum = 0;
@@ -63,7 +77,7 @@ uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_
         const uint8_t rv = ((pixel >> 11) & 0x1F) << 3;
         const uint8_t gv = ((pixel >> 5)  & 0x3F) << 2;
         const uint8_t bv = (pixel         & 0x1F) << 3;
-        sum += (uint32_t)(rv * 30 + gv * 59 + bv * 11) / 100;
+        sum += (77u * rv + 150u * gv + 29u * bv) >> 8;  // BT.601
       }
       count++;
     }
@@ -89,6 +103,8 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
 
 void DigitNumber::setup() {
   last_valid_ms_ = millis();
+  for (int d = 0; d < (int)digits_.size() && d < 4; d++)
+    geometries_[d] = derive_geometry_(digits_[d]);
   static_cast<camera::Camera *>(camera_)->add_listener(this);
 }
 
@@ -100,142 +116,117 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
   }
 }
 
+void DigitNumber::publish_all_(const char *state) {
+  publish_state(last_valid_);
+  if (staleness_sensor_)
+    staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+  if (last_state_sensor_)
+    last_state_sensor_->publish_state(state);
+}
+
 void DigitNumber::process_image_() {
   const int num_digits = (int)digits_.size();
-  std::vector<std::array<uint8_t, 7>> brightness(num_digits);
 
-  for (int attempt = 0; attempt <= (int)ready_max_retries_; attempt++) {
-    camera_fb_t *fb = esp_camera_fb_get();
-    if (!fb) {
-      ESP_LOGE(TAG, "esp_camera_fb_get failed");
-      return;
-    }
-
-    PixFmt fmt;
-    if (fb->format == PIXFORMAT_GRAYSCALE) {
-      fmt = PixFmt::GRAY;
-    } else if (fb->format == PIXFORMAT_RGB565) {
-      fmt = PixFmt::RGB565;
-    } else {
-      ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
-      esp_camera_fb_return(fb);
-      return;
-    }
-
-    const uint8_t *buf = fb->buf;
-    const uint16_t fw  = (uint16_t)fb->width;
-    const uint16_t fh  = (uint16_t)fb->height;
-
-    uint8_t global_max = 0;
-    for (int d = 0; d < num_digits; d++) {
-      const DigitGeometry geo = derive_geometry_(digits_[d]);
-      for (int s = 0; s < 7; s++) {
-        brightness[d][s] = sample_brightness_(buf, fw, fh, fmt, geo.seg[s].x, geo.seg[s].y);
-        if (brightness[d][s] > global_max)
-          global_max = brightness[d][s];
-      }
-    }
-
-    esp_camera_fb_return(fb);
-
-    if (global_max < display_off_threshold_) {
-      ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
-      publish_state(last_valid_);
-      if (staleness_sensor_)
-        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-      if (last_state_sensor_)
-        last_state_sensor_->publish_state("off");
-      return;
-    }
-
-    uint8_t thresh;
-    if (threshold_ < 0) {
-      uint8_t global_min = 255;
-      for (int d = 0; d < num_digits; d++)
-        for (int s = 0; s < 7; s++)
-          if (brightness[d][s] < global_min)
-            global_min = brightness[d][s];
-      thresh = (uint8_t)((global_min + global_max) / 2);
-    } else {
-      thresh = (uint8_t)threshold_;
-    }
-
-    std::vector<uint8_t> bitmasks(num_digits);
-    for (int d = 0; d < num_digits; d++) {
-      uint8_t bm = 0;
-      for (int s = 0; s < 7; s++) {
-        if (brightness[d][s] >= thresh)
-          bm |= (1 << s);
-      }
-      bitmasks[d] = bm;
-    }
-
-    bool all_zero = true;
-    for (int d = 0; d < num_digits; d++) {
-      if (bitmasks[d] != 0) { all_zero = false; break; }
-    }
-    if (all_zero) {
-      ESP_LOGW(TAG, "All bitmasks zero (noise/dark, thresh=%d) → off", thresh);
-      publish_state(last_valid_);
-      if (staleness_sensor_)
-        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-      if (last_state_sensor_)
-        last_state_sensor_->publish_state("off");
-      return;
-    }
-
-    bool all_dash = true;
-    for (int d = 0; d < num_digits; d++) {
-      if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
-    }
-    if (all_dash) {
-      if (attempt < (int)ready_max_retries_) {
-        ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d), retry %d/%d",
-                 thresh, attempt + 1, (int)ready_max_retries_);
-        continue;
-      }
-      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) after %d retries",
-               thresh, (int)ready_max_retries_);
-      publish_state(last_valid_);
-      if (staleness_sensor_)
-        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-      if (last_state_sensor_)
-        last_state_sensor_->publish_state("ready");
-      return;
-    }
-
-    // Decode digits
-    int32_t value = 0;
-    const int32_t multipliers[4] = {1000, 100, 10, 1};
-
-    for (int d = 0; d < num_digits; d++) {
-      const int8_t digit = decode_digit_(bitmasks[d]);
-      ESP_LOGD(TAG, "Digit %d: bitmask=0x%02X thresh=%d -> %d", d, bitmasks[d], thresh, (int)digit);
-      if (digit < 0) {
-        ESP_LOGW(TAG, "Unknown bitmask 0x%02X for digit %d (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
-                 bitmasks[d], d,
-                 brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
-                 brightness[d][4], brightness[d][5], brightness[d][6]);
-        publish_state(last_valid_);
-        if (staleness_sensor_)
-          staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-        if (last_state_sensor_)
-          last_state_sensor_->publish_state("fail");
-        return;
-      }
-      value += digit * multipliers[d];
-    }
-
-    ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
-    last_valid_ = (float)value;
-    last_valid_ms_ = millis();
-    publish_state(last_valid_);
-    if (staleness_sensor_)
-      staleness_sensor_->publish_state(0.0f);
-    if (last_state_sensor_)
-      last_state_sensor_->publish_state("ok");
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    ESP_LOGE(TAG, "esp_camera_fb_get failed");
     return;
   }
+
+  PixFmt fmt;
+  if (fb->format == PIXFORMAT_GRAYSCALE) {
+    fmt = PixFmt::GRAY;
+  } else if (fb->format == PIXFORMAT_RGB565) {
+    fmt = PixFmt::RGB565;
+  } else {
+    ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
+    esp_camera_fb_return(fb);
+    return;
+  }
+
+  const uint8_t *buf = fb->buf;
+  const uint16_t fw  = (uint16_t)fb->width;
+  const uint16_t fh  = (uint16_t)fb->height;
+
+  std::array<std::array<uint8_t, 7>, 4> brightness{};
+  uint8_t global_max = 0;
+
+  for (int d = 0; d < num_digits; d++) {
+    for (int s = 0; s < 7; s++) {
+      brightness[d][s] = sample_brightness_(buf, fw, fh, fmt,
+                                            geometries_[d].seg[s].x,
+                                            geometries_[d].seg[s].y);
+      if (brightness[d][s] > global_max)
+        global_max = brightness[d][s];
+    }
+  }
+
+  esp_camera_fb_return(fb);
+
+  if (global_max < display_off_threshold_) {
+    ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
+    publish_all_("off");
+    return;
+  }
+
+  std::array<uint8_t, 4> bitmasks{};
+  for (int d = 0; d < num_digits; d++) {
+    const uint8_t thresh = (threshold_ < 0)
+        ? max_gap_threshold_(brightness[d])
+        : (uint8_t)threshold_;
+    uint8_t bm = 0;
+    for (int s = 0; s < 7; s++) {
+      if (brightness[d][s] >= thresh)
+        bm |= (1 << s);
+    }
+    bitmasks[d] = bm;
+    ESP_LOGD(TAG, "Digit %d: thresh=%d bitmask=0x%02X (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
+             d, thresh, bm,
+             brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
+             brightness[d][4], brightness[d][5], brightness[d][6]);
+  }
+
+  bool all_zero = true;
+  for (int d = 0; d < num_digits; d++) {
+    if (bitmasks[d] != 0) { all_zero = false; break; }
+  }
+  if (all_zero) {
+    ESP_LOGW(TAG, "All bitmasks zero (noise/dark) → off");
+    publish_all_("off");
+    return;
+  }
+
+  bool all_dash = true;
+  for (int d = 0; d < num_digits; d++) {
+    if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
+  }
+  if (all_dash) {
+    ESP_LOGD(TAG, "Display ready (all dashes)");
+    publish_all_("ready");
+    return;
+  }
+
+  int32_t value = 0;
+  const int32_t multipliers[4] = {1000, 100, 10, 1};
+
+  for (int d = 0; d < num_digits; d++) {
+    const int8_t digit = decode_digit_(bitmasks[d]);
+    if (digit < 0) {
+      ESP_LOGW(TAG, "Unknown bitmask 0x%02X for digit %d", bitmasks[d], d);
+      publish_all_("fail");
+      return;
+    }
+    value += digit * multipliers[d];
+  }
+
+  ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
+  last_valid_ = (float)value;
+  last_valid_ms_ = millis();
+  publish_state(last_valid_);
+  if (staleness_sensor_)
+    staleness_sensor_->publish_state(0.0f);
+  if (last_state_sensor_)
+    last_state_sensor_->publish_state("ok");
 }
 
 }  // namespace digit_number

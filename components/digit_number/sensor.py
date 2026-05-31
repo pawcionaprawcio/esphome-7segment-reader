@@ -12,9 +12,6 @@ CONF_SAMPLE_RADIUS = "sample_radius"
 CONF_THRESHOLD = "threshold"
 CONF_DISPLAY_OFF_THRESHOLD = "display_off_threshold"
 CONF_UPDATE_INTERVAL = "update_interval"
-CONF_READY_MAX_RETRIES = "ready_max_retries"
-CONF_FRAME_WIDTH = "frame_width"
-CONF_FRAME_HEIGHT = "frame_height"
 CONF_LAST_SUCCESSFUL_READ = "last_successful_read"
 CONF_LAST_STATE = "last_state"
 
@@ -39,15 +36,12 @@ CONFIG_SCHEMA = (
             cv.ensure_list(DIGIT_SCHEMA),
             cv.Length(min=4, max=4, msg="Exactly 4 digits required"),
         ),
-        cv.Optional(CONF_FRAME_WIDTH, default=800): cv.uint16_t,
-        cv.Optional(CONF_FRAME_HEIGHT, default=600): cv.uint16_t,
         cv.Optional(CONF_SAMPLE_RADIUS, default=2): cv.uint8_t,
         cv.Optional(CONF_THRESHOLD, default="auto"): cv.Any(
             "auto", cv.int_range(min=0, max=255)
         ),
         cv.Optional(CONF_DISPLAY_OFF_THRESHOLD, default=10): cv.uint8_t,
         cv.Optional(CONF_UPDATE_INTERVAL, default="5s"): cv.update_interval,
-        cv.Optional(CONF_READY_MAX_RETRIES, default=3): cv.uint8_t,
         cv.Optional(CONF_LAST_SUCCESSFUL_READ): sensor.sensor_schema(
             unit_of_measurement="s",
             accuracy_decimals=0,
@@ -68,9 +62,6 @@ async def to_code(config):
     cam = await cg.get_variable(config[CONF_CAMERA_ID])
     cg.add(var.set_camera(cam))
 
-    cg.add(var.set_frame_width(config[CONF_FRAME_WIDTH]))
-    cg.add(var.set_frame_height(config[CONF_FRAME_HEIGHT]))
-
     for digit in config[CONF_DIGITS]:
         anchors = cg.StructInitializer(
             DigitAnchors,
@@ -88,7 +79,6 @@ async def to_code(config):
     cg.add(var.set_threshold(-1 if threshold == "auto" else int(threshold)))
 
     cg.add(var.set_display_off_threshold(config[CONF_DISPLAY_OFF_THRESHOLD]))
-    cg.add(var.set_ready_max_retries(config[CONF_READY_MAX_RETRIES]))
 
     if CONF_LAST_SUCCESSFUL_READ in config:
         stale = await sensor.new_sensor(config[CONF_LAST_SUCCESSFUL_READ])

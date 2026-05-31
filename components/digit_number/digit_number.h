@@ -33,14 +33,11 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
   void set_staleness_sensor(sensor::Sensor *s) { staleness_sensor_ = s; }
   void set_last_state_sensor(text_sensor::TextSensor *s) { last_state_sensor_ = s; }
-  void set_frame_width(uint16_t w) { (void)w; }
-  void set_frame_height(uint16_t h) { (void)h; }
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
   void set_threshold(int t) { threshold_ = t; }
   void set_display_off_threshold(uint8_t t) { display_off_threshold_ = t; }
   void set_update_interval(uint32_t ms) { update_interval_ms_ = ms; }
-  void set_ready_max_retries(uint8_t n) { ready_max_retries_ = n; }
 
   void setup() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
@@ -51,24 +48,27 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   DigitGeometry derive_geometry_(const DigitAnchors &a) const;
   uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, PixFmt fmt,
                              uint16_t cx, uint16_t cy) const;
+  static uint8_t max_gap_threshold_(const std::array<uint8_t, 7> &bright);
   int8_t decode_digit_(uint8_t bitmask) const;
   void process_image_();
+  void publish_all_(const char *state);
 
   esp32_camera::ESP32Camera *camera_{nullptr};
   sensor::Sensor *staleness_sensor_{nullptr};
   text_sensor::TextSensor *last_state_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
+  std::array<DigitGeometry, 4> geometries_{};
   uint8_t sample_radius_{2};
   int threshold_{-1};
   uint8_t display_off_threshold_{10};
   uint32_t update_interval_ms_{5000};
-  uint8_t ready_max_retries_{3};
   uint32_t last_publish_ms_{0};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
 
   static const uint8_t SEGMENT_PATTERNS_[10];
   static const uint8_t DASH_BITMASK_ = 0b1000000;  // segment g only
+  static const uint8_t ALL_ON_MIN_ = 100;           // min brightness when all segments lit (digit 8)
 };
 
 }  // namespace digit_number
