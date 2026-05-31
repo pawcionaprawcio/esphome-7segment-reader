@@ -93,140 +93,138 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
 }
 
 void DigitNumber::process_image_() {
-  camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) {
-    ESP_LOGE(TAG, "esp_camera_fb_get failed");
-    return;
-  }
-
-  PixFmt fmt;
-  if (fb->format == PIXFORMAT_GRAYSCALE) {
-    fmt = PixFmt::GRAY;
-  } else if (fb->format == PIXFORMAT_RGB565) {
-    fmt = PixFmt::RGB565;
-  } else {
-    ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
-    esp_camera_fb_return(fb);
-    return;
-  }
-
-  const uint8_t *buf = fb->buf;
-  const uint16_t fw  = (uint16_t)fb->width;
-  const uint16_t fh  = (uint16_t)fb->height;
   const int num_digits = (int)digits_.size();
-
   std::vector<std::array<uint8_t, 7>> brightness(num_digits);
-  uint8_t global_max = 0;
 
-  for (int d = 0; d < num_digits; d++) {
-    const DigitGeometry geo = derive_geometry_(digits_[d]);
-    for (int s = 0; s < 7; s++) {
-      brightness[d][s] = sample_brightness_(buf, fw, fh, fmt, geo.seg[s].x, geo.seg[s].y);
-      if (brightness[d][s] > global_max)
-        global_max = brightness[d][s];
+  for (int attempt = 0; attempt <= (int)ready_max_retries_; attempt++) {
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+      ESP_LOGE(TAG, "esp_camera_fb_get failed");
+      return;
     }
-  }
 
-  esp_camera_fb_return(fb);
-
-  if (global_max < display_off_threshold_) {
-    ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
-    publish_state(last_valid_);
-    if (staleness_sensor_)
-      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-    if (last_state_sensor_)
-      last_state_sensor_->publish_state("off");
-    return;
-  }
-
-  uint8_t thresh;
-  if (threshold_ < 0) {
-    uint8_t global_min = 255;
-    for (int d = 0; d < num_digits; d++)
-      for (int s = 0; s < 7; s++)
-        if (brightness[d][s] < global_min)
-          global_min = brightness[d][s];
-    thresh = (uint8_t)((global_min + global_max) / 2);
-  } else {
-    thresh = (uint8_t)threshold_;
-  }
-
-  std::vector<uint8_t> bitmasks(num_digits);
-  for (int d = 0; d < num_digits; d++) {
-    uint8_t bm = 0;
-    for (int s = 0; s < 7; s++) {
-      if (brightness[d][s] >= thresh)
-        bm |= (1 << s);
-    }
-    bitmasks[d] = bm;
-  }
-
-  // Check "off": all bitmasks zero means thresh > all segment brightnesses (uniform noise)
-  bool all_zero = true;
-  for (int d = 0; d < num_digits; d++) {
-    if (bitmasks[d] != 0) { all_zero = false; break; }
-  }
-  if (all_zero) {
-    ESP_LOGW(TAG, "All bitmasks zero (noise/dark, thresh=%d) → off", thresh);
-    publish_state(last_valid_);
-    if (staleness_sensor_)
-      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-    if (last_state_sensor_)
-      last_state_sensor_->publish_state("off");
-    return;
-  }
-
-  // Check "ready": all digits show dash (segment g only)
-  bool all_dash = true;
-  for (int d = 0; d < num_digits; d++) {
-    if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
-  }
-  if (all_dash) {
-    if (!ready_retried_) {
-      ready_retried_ = true;
-      last_publish_ms_ = millis() - update_interval_ms_ + ready_retry_delay_ms_;
-      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) → retry in %dms", thresh, (int)ready_retry_delay_ms_);
+    PixFmt fmt;
+    if (fb->format == PIXFORMAT_GRAYSCALE) {
+      fmt = PixFmt::GRAY;
+    } else if (fb->format == PIXFORMAT_RGB565) {
+      fmt = PixFmt::RGB565;
     } else {
-      ready_retried_ = false;
-      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) → retry already done, backing off", thresh);
+      ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
+      esp_camera_fb_return(fb);
+      return;
     }
-    publish_state(last_valid_);
-    if (staleness_sensor_)
-      staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
-    if (last_state_sensor_)
-      last_state_sensor_->publish_state("ready");
-    return;
-  }
 
-  // Decode digits
-  int32_t value = 0;
-  const int32_t multipliers[4] = {1000, 100, 10, 1};
+    const uint8_t *buf = fb->buf;
+    const uint16_t fw  = (uint16_t)fb->width;
+    const uint16_t fh  = (uint16_t)fb->height;
 
-  for (int d = 0; d < num_digits; d++) {
-    const int8_t digit = decode_digit_(bitmasks[d]);
-    ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmasks[d], thresh, digit);
-    if (digit < 0) {
-      ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmasks[d], d);
-      ready_retried_ = false;
+    uint8_t global_max = 0;
+    for (int d = 0; d < num_digits; d++) {
+      const DigitGeometry geo = derive_geometry_(digits_[d]);
+      for (int s = 0; s < 7; s++) {
+        brightness[d][s] = sample_brightness_(buf, fw, fh, fmt, geo.seg[s].x, geo.seg[s].y);
+        if (brightness[d][s] > global_max)
+          global_max = brightness[d][s];
+      }
+    }
+
+    esp_camera_fb_return(fb);
+
+    if (global_max < display_off_threshold_) {
+      ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);
       publish_state(last_valid_);
       if (staleness_sensor_)
         staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
       if (last_state_sensor_)
-        last_state_sensor_->publish_state("fail");
+        last_state_sensor_->publish_state("off");
       return;
     }
-    value += digit * multipliers[d];
-  }
 
-  ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
-  ready_retried_ = false;
-  last_valid_ = (float)value;
-  last_valid_ms_ = millis();
-  publish_state(last_valid_);
-  if (staleness_sensor_)
-    staleness_sensor_->publish_state(0.0f);
-  if (last_state_sensor_)
-    last_state_sensor_->publish_state("ok");
+    uint8_t thresh;
+    if (threshold_ < 0) {
+      uint8_t global_min = 255;
+      for (int d = 0; d < num_digits; d++)
+        for (int s = 0; s < 7; s++)
+          if (brightness[d][s] < global_min)
+            global_min = brightness[d][s];
+      thresh = (uint8_t)((global_min + global_max) / 2);
+    } else {
+      thresh = (uint8_t)threshold_;
+    }
+
+    std::vector<uint8_t> bitmasks(num_digits);
+    for (int d = 0; d < num_digits; d++) {
+      uint8_t bm = 0;
+      for (int s = 0; s < 7; s++) {
+        if (brightness[d][s] >= thresh)
+          bm |= (1 << s);
+      }
+      bitmasks[d] = bm;
+    }
+
+    bool all_zero = true;
+    for (int d = 0; d < num_digits; d++) {
+      if (bitmasks[d] != 0) { all_zero = false; break; }
+    }
+    if (all_zero) {
+      ESP_LOGW(TAG, "All bitmasks zero (noise/dark, thresh=%d) → off", thresh);
+      publish_state(last_valid_);
+      if (staleness_sensor_)
+        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+      if (last_state_sensor_)
+        last_state_sensor_->publish_state("off");
+      return;
+    }
+
+    bool all_dash = true;
+    for (int d = 0; d < num_digits; d++) {
+      if (bitmasks[d] != DASH_BITMASK_) { all_dash = false; break; }
+    }
+    if (all_dash) {
+      if (attempt < (int)ready_max_retries_) {
+        ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d), retry %d/%d",
+                 thresh, attempt + 1, (int)ready_max_retries_);
+        continue;
+      }
+      ESP_LOGD(TAG, "Display ready (all dashes, thresh=%d) after %d retries",
+               thresh, (int)ready_max_retries_);
+      publish_state(last_valid_);
+      if (staleness_sensor_)
+        staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+      if (last_state_sensor_)
+        last_state_sensor_->publish_state("ready");
+      return;
+    }
+
+    // Decode digits
+    int32_t value = 0;
+    const int32_t multipliers[4] = {1000, 100, 10, 1};
+
+    for (int d = 0; d < num_digits; d++) {
+      const int8_t digit = decode_digit_(bitmasks[d]);
+      ESP_LOGD(TAG, "Digit %d: bitmask=0b%07b thresh=%d -> %d", d, bitmasks[d], thresh, digit);
+      if (digit < 0) {
+        ESP_LOGW(TAG, "Unknown bitmask 0b%07b for digit %d", bitmasks[d], d);
+        publish_state(last_valid_);
+        if (staleness_sensor_)
+          staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
+        if (last_state_sensor_)
+          last_state_sensor_->publish_state("fail");
+        return;
+      }
+      value += digit * multipliers[d];
+    }
+
+    ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
+    last_valid_ = (float)value;
+    last_valid_ms_ = millis();
+    publish_state(last_valid_);
+    if (staleness_sensor_)
+      staleness_sensor_->publish_state(0.0f);
+    if (last_state_sensor_)
+      last_state_sensor_->publish_state("ok");
+    return;
+  }
 }
 
 }  // namespace digit_number
