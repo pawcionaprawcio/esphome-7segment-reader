@@ -28,8 +28,10 @@ Designed for close-up camera mounting where the display fills most of the frame.
 external_components:
   - source:
       type: git
-      url: https://github.com/youruser/esphome-digit-number
+      url: https://github.com/pawcionaprawcio/esphome_digit_number
+      ref: main
     components: [digit_number]
+    refresh: always
 ```
 
 ## Segment layout
@@ -165,6 +167,13 @@ sensor:
 | `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(min+max)/2` per frame |
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
+| `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
+| `last_successful_read` | sensor | — | Optional sensor publishing seconds since last valid read |
+| `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
+| `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
+| `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
+| `burst_mode.trigger_interval` | duration | `10s` | Interval between pulses within a burst |
+| `burst_mode.rest_duration` | duration | `5min` | Pause between bursts |
 
 ### Pixel format
 
@@ -178,8 +187,17 @@ sensor:
 
 - **Unit**: mm
 - **Accuracy**: 0 decimal places (integer)
-- **Range**: 0–9999 mm
+- **Range**: 0–9999 mm (or limited by `max_value`)
 - **NaN** published when: display off, unknown segment pattern, camera unavailable
+
+### `last_state` values
+
+| State | Meaning |
+|-------|---------|
+| `off` | All segment brightness below `display_off_threshold` |
+| `ready` | All digits show `–` (device warming up / measuring) |
+| `ok` | Valid reading published |
+| `fail` | Unrecognised segment pattern or value exceeded `max_value` |
 
 ## Troubleshooting
 
