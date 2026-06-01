@@ -240,6 +240,7 @@ void DigitNumber::process_image_() {
   ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
   last_valid_ = (float)value;
   last_valid_ms_ = millis();
+  burst_had_ok_ = true;
   publish_state(last_valid_);
   if (staleness_sensor_)
     staleness_sensor_->publish_state(0.0f);
@@ -266,6 +267,12 @@ void DigitNumber::burst_tick_() {
   burst_read_count_++;
   ESP_LOGI(TAG, "Burst read %d/%d", burst_read_count_, burst_count_);
   if (burst_read_count_ >= burst_count_) {
+    if (!burst_had_ok_) {
+      ESP_LOGW(TAG, "Burst done but no valid read — retrying burst");
+      burst_read_count_ = 0;
+      return;
+    }
+    burst_had_ok_ = false;
     burst_resting_ = true;
     burst_rest_start_ms_ = millis();
     paused_ = true;
