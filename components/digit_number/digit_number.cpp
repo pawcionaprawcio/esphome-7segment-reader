@@ -295,6 +295,19 @@ void DigitNumber::burst_tick_() {
   }
 }
 
+void DigitNumber::force_burst_now() {
+  if (burst_resting_) {
+    ESP_LOGI(TAG, "Take Measurement: cancelling rest, starting burst now");
+    burst_resting_ = false;
+    burst_read_count_ = 0;
+    paused_ = false;
+    burst_had_ok_ = false;
+    burst_tick_();
+  } else {
+    do_trigger_();
+  }
+}
+
 void DigitNumber::do_trigger_() {
   if (trigger_pin_ == nullptr) return;
   trigger_busy_ = true;

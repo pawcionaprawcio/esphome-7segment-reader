@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.4.1"
+#define DIGIT_NUMBER_VERSION "1.4.2"
 
 #include <array>
 #include <memory>
@@ -50,6 +50,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_burst_rest_duration(uint32_t ms) { burst_rest_duration_ms_ = ms; }
   void set_max_value(int32_t v) { max_value_ = v; }
   void do_trigger_();
+  void force_burst_now();
 
   void setup() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
@@ -110,7 +111,7 @@ template<typename... Ts>
 class TriggerMeasurementAction : public Action<Ts...> {
  public:
   explicit TriggerMeasurementAction(DigitNumber *parent) : parent_(parent) {}
-  void play(Ts... x) override { parent_->do_trigger_(); }
+  void play(Ts... x) override { parent_->force_burst_now(); }
  private:
   DigitNumber *parent_;
 };
