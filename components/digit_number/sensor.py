@@ -1,5 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.pins as pins
 from esphome.components import sensor, esp32_camera, text_sensor
 from esphome.const import STATE_CLASS_MEASUREMENT
 from . import digit_number_ns, DigitNumber
@@ -14,6 +15,24 @@ CONF_DISPLAY_OFF_THRESHOLD = "display_off_threshold"
 CONF_UPDATE_INTERVAL = "update_interval"
 CONF_LAST_SUCCESSFUL_READ = "last_successful_read"
 CONF_LAST_STATE = "last_state"
+CONF_TRIGGER_PIN = "trigger_pin"
+CONF_BURST_MODE = "burst_mode"
+CONF_BURST_COUNT = "count"
+CONF_BURST_TRIGGER_INTERVAL = "trigger_interval"
+CONF_BURST_REST_DURATION = "rest_duration"
+
+BURST_MODE_SCHEMA = cv.Schema({
+    cv.Optional(CONF_BURST_COUNT, default=3): cv.positive_int,
+    cv.Optional(CONF_BURST_TRIGGER_INTERVAL, default="10s"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_BURST_REST_DURATION, default="5min"): cv.positive_time_period_milliseconds,
+})
+
+
+def _validate_burst_requires_trigger(config):
+    if CONF_BURST_MODE in config and CONF_TRIGGER_PIN not in config:
+        raise cv.Invalid("burst_mode requires trigger_pin")
+    return config
+
 
 DigitAnchors = digit_number_ns.struct("DigitAnchors")
 
@@ -23,7 +42,7 @@ DIGIT_SCHEMA = cv.Schema({
     cv.Required("b"): cv.uint16_t,
 })
 
-CONFIG_SCHEMA = (
+CONFIG_SCHEMA = cv.All(
     sensor.sensor_schema(
         DigitNumber,
         unit_of_measurement="mm",
@@ -51,7 +70,10 @@ CONFIG_SCHEMA = (
         cv.Optional(CONF_LAST_STATE): text_sensor.text_sensor_schema(
             icon="mdi:information-outline",
         ),
-    })
+        cv.Optional(CONF_TRIGGER_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_BURST_MODE): BURST_MODE_SCHEMA,
+    }),
+    _validate_burst_requires_trigger,
 )
 
 
@@ -87,3 +109,13 @@ async def to_code(config):
     if CONF_LAST_STATE in config:
         ts = await text_sensor.new_text_sensor(config[CONF_LAST_STATE])
         cg.add(var.set_last_state_sensor(ts))
+
+    if CONF_TRIGGER_PIN in config:
+        pin = await cg.gpio_pin_expression(config[CONF_TRIGGER_PIN])
+        cg.add(var.set_trigger_pin(pin))
+
+    if CONF_BURST_MODE in config:
+        bm = config[CONF_BURST_MODE]
+        cg.add(var.set_burst_count(bm[CONF_BURST_COUNT]))
+        cg.add(var.set_burst_trigger_interval(bm[CONF_BURST_TRIGGER_INTERVAL]))
+        cg.add(var.set_burst_rest_duration(bm[CONF_BURST_REST_DURATION]))
