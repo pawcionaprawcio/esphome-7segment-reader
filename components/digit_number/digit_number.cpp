@@ -2,6 +2,7 @@
 #include "esphome/core/log.h"
 #include "esp_camera.h"
 #include <algorithm>
+#include <cmath>
 
 namespace esphome {
 namespace digit_number {
@@ -99,6 +100,7 @@ void DigitNumber::setup() {
   if (trigger_pin_ != nullptr) {
     trigger_pin_->setup();
     trigger_pin_->digital_write(false);
+    burst_current_rest_ms_ = burst_rest_duration_ms_;
     set_interval("burst_tick", burst_trigger_interval_ms_, [this] { burst_tick_(); });
     ESP_LOGI(TAG, "Burst mode: count=%d interval=%ums rest=%ums",
              burst_count_, (unsigned)burst_trigger_interval_ms_,
@@ -249,7 +251,7 @@ void DigitNumber::process_image_() {
 
 void DigitNumber::burst_tick_() {
   if (burst_resting_) {
-    if (millis() - burst_rest_start_ms_ < burst_rest_duration_ms_) {
+    if (millis() - burst_rest_start_ms_ < burst_current_rest_ms_) {
       ESP_LOGD(TAG, "Burst resting...");
       return;
     }
@@ -272,10 +274,24 @@ void DigitNumber::burst_tick_() {
       return;
     }
     burst_had_ok_ = false;
+    if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
+      const float delta = std::abs(last_valid_ - prev_burst_value_);
+      if (delta >= 5.0f) {
+        burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, (uint32_t)60000);
+        ESP_LOGI(TAG, "Burst done: delta=%.0fmm >= 5mm, rest shortened to %ums", delta, (unsigned)burst_current_rest_ms_);
+      } else {
+        burst_current_rest_ms_ = burst_rest_duration_ms_;
+        ESP_LOGI(TAG, "Burst done: delta=%.0fmm < 5mm, resting %ums", delta, (unsigned)burst_current_rest_ms_);
+      }
+    } else {
+      burst_current_rest_ms_ = burst_rest_duration_ms_;
+      ESP_LOGI(TAG, "Burst done, resting %ums", (unsigned)burst_current_rest_ms_);
+    }
+    if (!std::isnan(last_valid_))
+      prev_burst_value_ = last_valid_;
     burst_resting_ = true;
     burst_rest_start_ms_ = millis();
     paused_ = true;
-    ESP_LOGI(TAG, "Burst done, resting %ums", (unsigned)burst_rest_duration_ms_);
   }
 }
 

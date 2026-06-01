@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.3.5"
+#define DIGIT_NUMBER_VERSION "1.4.1"
 
 #include <array>
 #include <memory>
@@ -99,6 +99,8 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   int32_t max_value_{-1};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
+  float prev_burst_value_{NAN};
+  uint32_t burst_current_rest_ms_{0};
 
   static const uint8_t SEGMENT_PATTERNS_[10];
   static const uint8_t DASH_BITMASK_ = 0b1000000;  // segment g only
