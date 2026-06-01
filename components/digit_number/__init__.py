@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import automation
+from esphome import automation
 from esphome.const import CONF_ID
 
 digit_number_ns = cg.esphome_ns.namespace("digit_number")
