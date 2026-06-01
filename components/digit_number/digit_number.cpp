@@ -231,6 +231,12 @@ void DigitNumber::process_image_() {
     value += digit * multipliers[d];
   }
 
+  if (max_value_ >= 0 && value > max_value_) {
+    ESP_LOGW(TAG, "Value %d > max_value %d, treating as read error", (int)value, (int)max_value_);
+    publish_all_("fail");
+    return;
+  }
+
   ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
   last_valid_ = (float)value;
   last_valid_ms_ = millis();

@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.2.4"
+#define DIGIT_NUMBER_VERSION "1.3.1"
 
 #include <array>
 #include <memory>
@@ -47,6 +47,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_burst_count(uint8_t count) { burst_count_ = count; }
   void set_burst_trigger_interval(uint32_t ms) { burst_trigger_interval_ms_ = ms; }
   void set_burst_rest_duration(uint32_t ms) { burst_rest_duration_ms_ = ms; }
+  void set_max_value(int32_t v) { max_value_ = v; }
   void do_trigger_();
 
   void setup() override;
@@ -94,6 +95,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   // last_state string for trigger logic
   std::string last_state_str_{"off"};
 
+  int32_t max_value_{-1};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
 

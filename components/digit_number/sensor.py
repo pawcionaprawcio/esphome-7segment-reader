@@ -20,6 +20,7 @@ CONF_BURST_MODE = "burst_mode"
 CONF_BURST_COUNT = "count"
 CONF_BURST_TRIGGER_INTERVAL = "trigger_interval"
 CONF_BURST_REST_DURATION = "rest_duration"
+CONF_MAX_VALUE = "max_value"
 
 BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_BURST_COUNT, default=3): cv.positive_int,
@@ -74,6 +75,7 @@ CONFIG_SCHEMA = cv.All(
         ),
         cv.Optional(CONF_TRIGGER_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_BURST_MODE): BURST_MODE_SCHEMA,
+        cv.Optional(CONF_MAX_VALUE): cv.positive_int,
     }),
     _validate_burst_requires_trigger,
 )
@@ -121,3 +123,6 @@ async def to_code(config):
         cg.add(var.set_burst_count(bm[CONF_BURST_COUNT]))
         cg.add(var.set_burst_trigger_interval(bm[CONF_BURST_TRIGGER_INTERVAL]))
         cg.add(var.set_burst_rest_duration(bm[CONF_BURST_REST_DURATION]))
+
+    if CONF_MAX_VALUE in config:
+        cg.add(var.set_max_value(config[CONF_MAX_VALUE]))
