@@ -107,6 +107,14 @@ void DigitNumber::setup() {
   for (int d = 0; d < (int)digits_.size() && d < 4; d++)
     geometries_[d] = derive_geometry_(digits_[d]);
   static_cast<camera::Camera *>(camera_)->add_listener(this);
+  if (trigger_pin_ != nullptr) {
+    trigger_pin_->setup();
+    trigger_pin_->digital_write(false);
+    set_interval("burst_tick", burst_trigger_interval_ms_, [this] { burst_tick_(); });
+    ESP_LOGI(TAG, "Burst mode: count=%d interval=%ums rest=%ums",
+             burst_count_, (unsigned)burst_trigger_interval_ms_,
+             (unsigned)burst_rest_duration_ms_);
+  }
 }
 
 void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
@@ -119,6 +127,7 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
 }
 
 void DigitNumber::publish_all_(const char *state) {
+  last_state_str_ = state;
   publish_state(last_valid_);
   if (staleness_sensor_)
     staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
@@ -230,6 +239,73 @@ void DigitNumber::process_image_() {
     staleness_sensor_->publish_state(0.0f);
   if (last_state_sensor_)
     last_state_sensor_->publish_state("ok");
+}
+
+void DigitNumber::burst_tick_() {
+  if (burst_resting_) {
+    if (millis() - burst_rest_start_ms_ < burst_rest_duration_ms_) {
+      ESP_LOGD(TAG, "Burst resting...");
+      return;
+    }
+    ESP_LOGI(TAG, "Burst rest done, resuming");
+    burst_resting_ = false;
+    burst_read_count_ = 0;
+    paused_ = false;
+  }
+  if (trigger_busy_) {
+    ESP_LOGD(TAG, "Trigger busy, skipping tick");
+    return;
+  }
+  do_trigger_();
+  burst_read_count_++;
+  ESP_LOGI(TAG, "Burst read %d/%d", burst_read_count_, burst_count_);
+  if (burst_read_count_ >= burst_count_) {
+    burst_resting_ = true;
+    burst_rest_start_ms_ = millis();
+    paused_ = true;
+    ESP_LOGI(TAG, "Burst done, resting %ums", (unsigned)burst_rest_duration_ms_);
+  }
+}
+
+void DigitNumber::do_trigger_() {
+  if (trigger_pin_ == nullptr) return;
+  trigger_busy_ = true;
+  if (last_state_str_ == "off") {
+    trigger_pin_->digital_write(true);
+    set_timeout("trig_w1", 300, [this]() {
+      trigger_pin_->digital_write(false);
+      set_timeout("trig_w2", 2000, [this]() {
+        trigger_pin_->digital_write(true);
+        set_timeout("trig_m", 300, [this]() {
+          trigger_pin_->digital_write(false);
+          wait_ok_remaining_ = 30;
+          wait_for_ok_();
+        });
+      });
+    });
+  } else {
+    trigger_pin_->digital_write(true);
+    set_timeout("trig_m", 300, [this]() {
+      trigger_pin_->digital_write(false);
+      wait_ok_remaining_ = 30;
+      wait_for_ok_();
+    });
+  }
+}
+
+void DigitNumber::wait_for_ok_() {
+  if (last_state_str_ == "ok") {
+    ESP_LOGD(TAG, "Trigger: got ok");
+    trigger_busy_ = false;
+    return;
+  }
+  if (wait_ok_remaining_ <= 0) {
+    ESP_LOGW(TAG, "Trigger: timeout waiting for ok");
+    trigger_busy_ = false;
+    return;
+  }
+  wait_ok_remaining_--;
+  set_timeout("wait_ok", 200, [this]() { wait_for_ok_(); });
 }
 
 }  // namespace digit_number
