@@ -109,6 +109,7 @@ void DigitNumber::setup() {
 }
 
 void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
+  if (paused_) return;
   const uint32_t now = millis();
   if (now - last_publish_ms_ >= update_interval_ms_) {
     last_publish_ms_ = now;

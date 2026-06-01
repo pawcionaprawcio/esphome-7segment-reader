@@ -38,6 +38,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_threshold(int t) { threshold_ = t; }
   void set_display_off_threshold(uint8_t t) { display_off_threshold_ = t; }
   void set_update_interval(uint32_t ms) { update_interval_ms_ = ms; }
+  void set_paused(bool p) { paused_ = p; }
 
   void setup() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
@@ -63,6 +64,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint8_t display_off_threshold_{10};
   uint32_t update_interval_ms_{5000};
   uint32_t last_publish_ms_{0};
+  bool paused_{false};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
 
