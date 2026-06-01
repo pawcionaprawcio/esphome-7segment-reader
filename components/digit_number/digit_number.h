@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.3.4"
+#define DIGIT_NUMBER_VERSION "1.3.5"
 
 #include <array>
 #include <memory>
@@ -102,7 +102,6 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
 
   static const uint8_t SEGMENT_PATTERNS_[10];
   static const uint8_t DASH_BITMASK_ = 0b1000000;  // segment g only
-  static const uint8_t ALL_ON_MIN_ = 100;           // min brightness when all segments lit (digit 8)
 };
 
 template<typename... Ts>
