@@ -95,14 +95,17 @@ def _load_state(filename):
     img = Image.open(IMG_DIR / filename).convert("L")
     pixels = img.load()
     w, h = img.size
-    all_bright, digit_segs = [], []
+    all_bright, digit_segs, bg_refs = [], [], []
     for a in PROD_ANCHORS:
         centers = derive_segment_centers(a["a"], a["g"], a["bx"])
         bright = [sample_brightness(pixels, w, h, *centers[s], radius=PROD_SAMPLE_RADIUS)
                   for s in "abcdefg"]
         digit_segs.append(bright)
         all_bright.extend(bright)
-    return determine_state(all_bright, digit_segs, PROD_OFF_THRESHOLD)
+        bg0 = sample_brightness(pixels, w, h, *centers['bg0'], radius=PROD_SAMPLE_RADIUS)
+        bg1 = sample_brightness(pixels, w, h, *centers['bg1'], radius=PROD_SAMPLE_RADIUS)
+        bg_refs.append((bg0 + bg1) // 2)
+    return determine_state(all_bright, digit_segs, bg_refs=bg_refs, display_off_threshold=PROD_OFF_THRESHOLD)
 
 
 def test_real_image_off():

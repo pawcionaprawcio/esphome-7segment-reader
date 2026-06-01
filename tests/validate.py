@@ -29,13 +29,15 @@ def derive_segment_centers(a, g, bx):
     y_th = (ay + gy) // 2
     y_bh = (gy + y_bot) // 2
     return {
-        'a': (ax,      y_top),
-        'b': (x_right, y_th),
-        'c': (x_right, y_bh),
-        'd': (ax,      y_bot),
-        'e': (x_left,  y_bh),
-        'f': (x_left,  y_th),
-        'g': (gx,      y_mid),
+        'a':   (ax,      y_top),
+        'b':   (x_right, y_th),
+        'c':   (x_right, y_bh),
+        'd':   (ax,      y_bot),
+        'e':   (x_left,  y_bh),
+        'f':   (x_left,  y_th),
+        'g':   (gx,      y_mid),
+        'bg0': (ax,      y_th),   # upper interior background reference
+        'bg1': (ax,      y_bh),   # lower interior background reference
     }
 
 
@@ -63,7 +65,7 @@ def decode_digit(bitmask):
 DASH_BITMASK = 0b1000000  # segment g only — kreska (dash); verified against size_3/kreski.jpg
 
 
-def determine_state(all_bright, digit_segments, display_off_threshold=20):
+def determine_state(all_bright, digit_segments, bg_refs=None, display_off_threshold=20):
     """Mirror C++ last_state logic. Returns (state, value_or_None).
 
     States:
@@ -71,16 +73,19 @@ def determine_state(all_bright, digit_segments, display_off_threshold=20):
       'ready' — all 4 digits have DASH_BITMASK (segment g only)
       'ok'    — all 4 digits decode to 0-9; value is the mm integer
       'fail'  — any other case (unknown bitmask, not dash)
+
+    bg_refs: per-digit background brightness (avg of 2 interior points).
+             If None, falls back to per-digit min (for unit tests with synthetic data).
     """
     gmax = max(all_bright)
     if gmax < display_off_threshold:
         return "off", None
-    gmin = min(all_bright)
-    thresh = (gmin + gmax) // 2
-    bitmasks = [
-        sum((1 << i) for i, b in enumerate(bright) if b >= thresh)
-        for bright in digit_segments
-    ]
+    bitmasks = []
+    for i, bright in enumerate(digit_segments):
+        black_ref = bg_refs[i] if bg_refs is not None else min(bright)
+        bright_max = max(bright)
+        thresh = (black_ref + bright_max) // 2
+        bitmasks.append(sum((1 << j) for j, b in enumerate(bright) if b >= thresh))
     if all(b == DASH_BITMASK for b in bitmasks):
         return "ready", None
     digits = [decode_digit(b) for b in bitmasks]
@@ -137,6 +142,7 @@ def process_image(path, debug=False):
     all_bright = []
     digit_segments = []
 
+    bg_refs = []
     for anchors in DIGIT_ANCHORS:
         centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["bx"])
         seg_order = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
@@ -144,25 +150,26 @@ def process_image(path, debug=False):
                   for s in seg_order]
         digit_segments.append(bright)
         all_bright.extend(bright)
+        bg0 = sample_brightness(pixels, w, h, *centers['bg0'], radius=SAMPLE_RADIUS)
+        bg1 = sample_brightness(pixels, w, h, *centers['bg1'], radius=SAMPLE_RADIUS)
+        bg_refs.append((bg0 + bg1) // 2)
 
     global_max = max(all_bright)
-    global_min = min(all_bright)
 
     if global_max < DISPLAY_OFF_THRESHOLD:
         if debug:
             print(f"  DISPLAY OFF (max brightness {global_max} < {DISPLAY_OFF_THRESHOLD})")
         return None
 
-    thresh = (global_min + global_max) // 2
-    if debug:
-        print(f"  thresh={thresh} (min={global_min} max={global_max})")
-
     digits = []
     for d, bright in enumerate(digit_segments):
+        black_ref = bg_refs[d]
+        bright_max = max(bright)
+        thresh = (black_ref + bright_max) // 2
         bitmask = sum((1 << i) for i, b in enumerate(bright) if b >= thresh)
         digit = decode_digit(bitmask)
         if debug:
-            print(f"  digit {d}: bright={bright} bitmask={bin(bitmask)} thresh={thresh} -> {digit}")
+            print(f"  digit {d}: bg={black_ref} thresh={thresh} bright={bright} bitmask={bin(bitmask)} -> {digit}")
         if digit is None:
             if not debug:
                 print(f"  {path.name}: UNKNOWN bitmask {bin(bitmask)} for digit {d}")

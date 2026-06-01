@@ -39,20 +39,9 @@ DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
   geo.seg[4] = {x_left,  y_bh};    // e
   geo.seg[5] = {x_left,  y_th};    // f
   geo.seg[6] = {a.gx,    y_mid};   // g
+  geo.bg[0]  = {a.ax,    y_th};    // upper interior (between a and g, centered)
+  geo.bg[1]  = {a.ax,    y_bh};    // lower interior (between g and d, centered)
   return geo;
-}
-
-uint8_t DigitNumber::max_gap_threshold_(const std::array<uint8_t, 7> &bright) {
-  if (*std::min_element(bright.begin(), bright.end()) > ALL_ON_MIN_)
-    return 0;  // all segments clearly ON (e.g. digit 8 with uniform backlight)
-  std::array<uint8_t, 7> s = bright;
-  std::sort(s.begin(), s.end());
-  uint8_t best_gap = 0, gap_pos = 0;
-  for (int i = 0; i < 6; i++) {
-    const uint8_t g = s[i + 1] - s[i];
-    if (g > best_gap) { best_gap = g; gap_pos = i; }
-  }
-  return (s[gap_pos] + s[gap_pos + 1]) / 2;
 }
 
 uint8_t DigitNumber::sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh,
@@ -161,6 +150,7 @@ void DigitNumber::process_image_() {
   const uint16_t fh  = (uint16_t)fb->height;
 
   std::array<std::array<uint8_t, 7>, 4> brightness{};
+  std::array<uint8_t, 4> black_ref{};
   uint8_t global_max = 0;
 
   for (int d = 0; d < num_digits; d++) {
@@ -171,6 +161,11 @@ void DigitNumber::process_image_() {
       if (brightness[d][s] > global_max)
         global_max = brightness[d][s];
     }
+    const uint8_t bg0 = sample_brightness_(buf, fw, fh, fmt,
+                                           geometries_[d].bg[0].x, geometries_[d].bg[0].y);
+    const uint8_t bg1 = sample_brightness_(buf, fw, fh, fmt,
+                                           geometries_[d].bg[1].x, geometries_[d].bg[1].y);
+    black_ref[d] = (uint8_t)(((uint16_t)bg0 + bg1) / 2);
   }
 
   esp_camera_fb_return(fb);
@@ -183,17 +178,21 @@ void DigitNumber::process_image_() {
 
   std::array<uint8_t, 4> bitmasks{};
   for (int d = 0; d < num_digits; d++) {
-    const uint8_t thresh = (threshold_ < 0)
-        ? max_gap_threshold_(brightness[d])
-        : (uint8_t)threshold_;
+    uint8_t thresh;
+    if (threshold_ >= 0) {
+      thresh = (uint8_t)threshold_;
+    } else {
+      const uint8_t bright_max = *std::max_element(brightness[d].begin(), brightness[d].end());
+      thresh = (uint8_t)(((uint16_t)black_ref[d] + bright_max) / 2);
+    }
     uint8_t bm = 0;
     for (int s = 0; s < 7; s++) {
       if (brightness[d][s] >= thresh)
         bm |= (1 << s);
     }
     bitmasks[d] = bm;
-    ESP_LOGD(TAG, "Digit %d: thresh=%d bitmask=0x%02X (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
-             d, thresh, bm,
+    ESP_LOGD(TAG, "Digit %d: bg=%d thresh=%d bitmask=0x%02X (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
+             d, black_ref[d], thresh, bm,
              brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
              brightness[d][4], brightness[d][5], brightness[d][6]);
   }

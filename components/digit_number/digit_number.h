@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.3.3"
+#define DIGIT_NUMBER_VERSION "1.3.4"
 
 #include <array>
 #include <memory>
@@ -30,6 +30,7 @@ struct SegmentCenter {
 
 struct DigitGeometry {
   SegmentCenter seg[7];  // order: a,b,c,d,e,f,g (index = bit position in bitmask)
+  SegmentCenter bg[2];   // background reference: [0]=upper interior, [1]=lower interior
 };
 
 class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
@@ -59,7 +60,6 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   DigitGeometry derive_geometry_(const DigitAnchors &a) const;
   uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, PixFmt fmt,
                              uint16_t cx, uint16_t cy) const;
-  static uint8_t max_gap_threshold_(const std::array<uint8_t, 7> &bright);
   int8_t decode_digit_(uint8_t bitmask) const;
   void process_image_();
   void publish_all_(const char *state);
