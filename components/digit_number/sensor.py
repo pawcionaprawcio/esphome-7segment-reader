@@ -31,6 +31,8 @@ BURST_MODE_SCHEMA = cv.Schema({
 def _validate_burst_requires_trigger(config):
     if CONF_BURST_MODE in config and CONF_TRIGGER_PIN not in config:
         raise cv.Invalid("burst_mode requires trigger_pin")
+    if CONF_TRIGGER_PIN in config and CONF_BURST_MODE not in config:
+        raise cv.Invalid("trigger_pin requires burst_mode")
     return config
 
 

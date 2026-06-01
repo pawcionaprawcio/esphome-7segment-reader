@@ -276,7 +276,7 @@ void DigitNumber::do_trigger_() {
       trigger_pin_->digital_write(false);
       set_timeout("trig_w2", 2000, [this]() {
         trigger_pin_->digital_write(true);
-        set_timeout("trig_m", 300, [this]() {
+        set_timeout("trig_m_cold", 300, [this]() {
           trigger_pin_->digital_write(false);
           wait_ok_remaining_ = 30;
           wait_for_ok_();
