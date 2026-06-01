@@ -102,6 +102,7 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
 }
 
 void DigitNumber::setup() {
+  ESP_LOGI(TAG, "digit_number v%s", DIGIT_NUMBER_VERSION);
   last_valid_ms_ = millis();
   for (int d = 0; d < (int)digits_.size() && d < 4; d++)
     geometries_[d] = derive_geometry_(digits_[d]);
@@ -128,6 +129,7 @@ void DigitNumber::publish_all_(const char *state) {
 void DigitNumber::process_image_() {
   const int num_digits = (int)digits_.size();
 
+  ESP_LOGD(TAG, "[v" DIGIT_NUMBER_VERSION "] processing frame");
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "esp_camera_fb_get failed");

@@ -1,5 +1,7 @@
 #pragma once
 
+#define DIGIT_NUMBER_VERSION "1.1.1"
+
 #include <array>
 #include <memory>
 #include <vector>
