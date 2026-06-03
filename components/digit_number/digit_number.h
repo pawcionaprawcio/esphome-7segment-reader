@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.0.7"
+#define DIGIT_NUMBER_VERSION "2.0.8"
 
 #include <array>
 #include <memory>
@@ -36,7 +36,6 @@ struct DigitGeometry {
 class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
-  void set_staleness_sensor(sensor::Sensor *s) { staleness_sensor_ = s; }
   void set_last_state_sensor(text_sensor::TextSensor *s) { last_state_sensor_ = s; }
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
@@ -69,7 +68,6 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void trigger_done_();
 
   esp32_camera::ESP32Camera *camera_{nullptr};
-  sensor::Sensor *staleness_sensor_{nullptr};
   text_sensor::TextSensor *last_state_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
   std::array<DigitGeometry, 4> geometries_{};

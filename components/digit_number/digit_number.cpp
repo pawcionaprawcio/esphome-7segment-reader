@@ -117,8 +117,6 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
 void DigitNumber::publish_all_(const char *state) {
   last_state_str_ = state;
   publish_state(last_valid_);
-  if (staleness_sensor_)
-    staleness_sensor_->publish_state((float)((millis() - last_valid_ms_) / 1000));
   if (last_state_sensor_)
     last_state_sensor_->publish_state(state);
 }
@@ -244,8 +242,6 @@ void DigitNumber::process_image_() {
   last_valid_ms_ = millis();
   burst_had_ok_ = true;
   publish_state(last_valid_);
-  if (staleness_sensor_)
-    staleness_sensor_->publish_state(0.0f);
   if (last_state_sensor_)
     last_state_sensor_->publish_state("ok");
 }

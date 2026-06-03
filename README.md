@@ -169,7 +169,6 @@ sensor:
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
-| `last_successful_read` | sensor | — | Optional sensor publishing seconds since last valid read |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
 | `burst_mode.count` | int | 3 | Number of trigger pulses per burst |

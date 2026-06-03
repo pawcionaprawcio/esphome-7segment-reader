@@ -13,7 +13,6 @@ CONF_SAMPLE_RADIUS = "sample_radius"
 CONF_THRESHOLD = "threshold"
 CONF_DISPLAY_OFF_THRESHOLD = "display_off_threshold"
 CONF_UPDATE_INTERVAL = "update_interval"
-CONF_LAST_SUCCESSFUL_READ = "last_successful_read"
 CONF_LAST_STATE = "last_state"
 CONF_TRIGGER_PIN = "trigger_pin"
 CONF_BURST_MODE = "burst_mode"
@@ -64,12 +63,6 @@ CONFIG_SCHEMA = cv.All(
         ),
         cv.Optional(CONF_DISPLAY_OFF_THRESHOLD, default=10): cv.uint8_t,
         cv.Optional(CONF_UPDATE_INTERVAL, default="5s"): cv.update_interval,
-        cv.Optional(CONF_LAST_SUCCESSFUL_READ): sensor.sensor_schema(
-            unit_of_measurement="s",
-            accuracy_decimals=0,
-            state_class=STATE_CLASS_MEASUREMENT,
-            icon="mdi:clock-alert-outline",
-        ),
         cv.Optional(CONF_LAST_STATE): text_sensor.text_sensor_schema(
             icon="mdi:information-outline",
         ),
@@ -106,10 +99,6 @@ async def to_code(config):
     cg.add(var.set_threshold(-1 if threshold == "auto" else int(threshold)))
 
     cg.add(var.set_display_off_threshold(config[CONF_DISPLAY_OFF_THRESHOLD]))
-
-    if CONF_LAST_SUCCESSFUL_READ in config:
-        stale = await sensor.new_sensor(config[CONF_LAST_SUCCESSFUL_READ])
-        cg.add(var.set_staleness_sensor(stale))
 
     if CONF_LAST_STATE in config:
         ts = await text_sensor.new_text_sensor(config[CONF_LAST_STATE])
