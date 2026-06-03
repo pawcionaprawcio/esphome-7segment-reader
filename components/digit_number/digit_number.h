@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.0.3"
+#define DIGIT_NUMBER_VERSION "2.0.4"
 
 #include <array>
 #include <memory>
@@ -66,6 +66,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void publish_all_(const char *state);
   void burst_tick_();
   void wait_for_ok_();
+  void trigger_done_();
 
   esp32_camera::ESP32Camera *camera_{nullptr};
   sensor::Sensor *staleness_sensor_{nullptr};
@@ -91,6 +92,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   bool     burst_resting_{false};
   uint32_t burst_rest_start_ms_{0};
   bool     trigger_busy_{false};
+  bool     pending_pause_{false};
   int      wait_ok_remaining_{0};
   bool     burst_had_ok_{false};
 

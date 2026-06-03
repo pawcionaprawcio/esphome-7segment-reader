@@ -290,7 +290,11 @@ void DigitNumber::burst_tick_() {
       prev_burst_value_ = last_valid_;
     burst_resting_ = true;
     burst_rest_start_ms_ = millis();
-    paused_ = true;
+    if (trigger_busy_) {
+      pending_pause_ = true;  // pause after trigger completes so last read can be captured
+    } else {
+      paused_ = true;
+    }
   }
 }
 
@@ -300,6 +304,7 @@ void DigitNumber::force_burst_now() {
     burst_resting_ = false;
     burst_read_count_ = 0;
     paused_ = false;
+    pending_pause_ = false;
     burst_had_ok_ = false;
     burst_tick_();
   } else {
@@ -333,15 +338,24 @@ void DigitNumber::do_trigger_() {
   }
 }
 
+void DigitNumber::trigger_done_() {
+  trigger_busy_ = false;
+  if (pending_pause_) {
+    pending_pause_ = false;
+    paused_ = true;
+    ESP_LOGI(TAG, "Trigger complete — entering burst rest");
+  }
+}
+
 void DigitNumber::wait_for_ok_() {
   if (last_state_str_ == "ok") {
     ESP_LOGD(TAG, "Trigger: got ok");
-    trigger_busy_ = false;
+    trigger_done_();
     return;
   }
   if (wait_ok_remaining_ <= 0) {
     ESP_LOGW(TAG, "Trigger: timeout waiting for ok");
-    trigger_busy_ = false;
+    trigger_done_();
     return;
   }
   wait_ok_remaining_--;
