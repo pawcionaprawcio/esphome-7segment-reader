@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Digit Calibration GUI</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  display: flex; flex-direction: column; height: 100vh;
+  background: #181825; color: #cdd6f4; font-family: monospace;
+  overflow: hidden;
+}
+#toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; background: #1e1e2e; flex-shrink: 0;
+}
+#toolbar button {
+  background: #45475a; color: #cdd6f4; border: none;
+  padding: 4px 12px; cursor: pointer; border-radius: 4px; font-family: monospace;
+}
+#toolbar button:hover { background: #585b70; }
+#nav-label { flex: 1; text-align: center; color: #bac2de; font-size: 13px; }
+#infobar {
+  padding: 4px 10px; background: #1e1e2e; font-size: 11px;
+  color: #a6e3a1; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; flex-shrink: 0; border-top: 1px solid #313244;
+  min-height: 22px;
+}
+#main {
+  display: flex; flex: 1; overflow: hidden;
+}
+#panel {
+  width: 180px; background: #313244; flex-shrink: 0;
+  overflow-y: auto; padding: 4px;
+}
+.digit-group { margin-bottom: 4px; }
+.digit-header {
+  background: #45475a; color: #cdd6f4; font-size: 11px; font-weight: bold;
+  padding: 3px 6px; margin-bottom: 2px; border-radius: 3px;
+}
+.anchor-row {
+  display: flex; align-items: center; gap: 4px;
+  padding: 1px 2px;
+}
+.anchor-btn {
+  background: #45475a; color: #cdd6f4; border: none;
+  padding: 3px 7px; cursor: pointer; border-radius: 3px;
+  font-family: monospace; font-size: 11px; font-weight: bold;
+  width: 36px; flex-shrink: 0;
+}
+.anchor-btn:hover { background: #585b70; }
+.anchor-btn.active { background: #f9e2af; color: #1e1e2e; }
+.anchor-val {
+  font-size: 10px; color: #a6e3a1; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+canvas {
+  flex: 1; display: block; cursor: crosshair;
+}
+#hint {
+  position: fixed; bottom: 6px; right: 10px;
+  font-size: 10px; color: #585b70;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <label style="cursor:pointer">
+    <input type="file" id="folder-input" webkitdirectory accept="image/*" style="display:none">
+    <span style="background:#45475a;color:#cdd6f4;padding:4px 12px;border-radius:4px;cursor:pointer">
+      Choose Folder
+    </span>
+  </label>
+  <button id="btn-prev">← Prev</button>
+  <span id="nav-label">—</span>
+  <button id="btn-next">Next →</button>
+</div>
+
+<div id="infobar">—</div>
+
+<div id="main">
+  <div id="panel"></div>
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="hint">LPM: place anchor &nbsp; PPM / Ctrl+click: clear &nbsp; ← →: navigate</div>
+
+<script>
+const ANCHORS = ['a1','g1','b1','a2','g2','b2','a3','g3','b3','a4','g4','b4'];
+const IMG_EXTS = new Set(['jpg','jpeg','png','webp','bmp','gif']);
+
+// ── state ──────────────────────────────────────────────────────────────
+const anchors = {};
+ANCHORS.forEach(n => anchors[n] = null);
+let activeAnchor = 'a1';
+let images = [];   // {name, url, file}
+let idx = 0;
+let imgEl = null;  // current loaded HTMLImageElement
+let scale = 1, offX = 0, offY = 0;
+
+// ── algorithm (port of validate.py) ───────────────────────────────────
+function deriveSegments(ax, ay, gx, gy, bx, by) {
+  const dx = gx - ax, dy = gy - ay;  // down vector
+  return {
+    a: [ax,           ay],
+    b: [bx,           by],
+    c: [bx + dx,      by + dy],
+    d: [2*gx - ax,    2*gy - ay],
+    e: [2*gx - bx,    2*gy - by],
+    f: [ax+gx - bx,   ay+gy - by],
+    g: [gx,           gy],
+  };
+}
+
+// ── DOM refs ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const infobar = document.getElementById('infobar');
+
+// ── panel build ────────────────────────────────────────────────────────
+const btnEls = {}, valEls = {};
+
+(function buildPanel() {
+  const panel = document.getElementById('panel');
+  for (let d = 1; d <= 4; d++) {
+    const grp = document.createElement('div');
+    grp.className = 'digit-group';
+    const hdr = document.createElement('div');
+    hdr.className = 'digit-header';
+    hdr.textContent = `Digit ${d}`;
+    grp.appendChild(hdr);
+    for (const p of ['a','g','b']) {
+      const name = p + d;
+      const row = document.createElement('div');
+      row.className = 'anchor-row';
+      const btn = document.createElement('button');
+      btn.className = 'anchor-btn';
+      btn.textContent = name;
+      btn.addEventListener('click', () => selectAnchor(name));
+      const val = document.createElement('span');
+      val.className = 'anchor-val';
+      val.textContent = '—';
+      row.appendChild(btn);
+      row.appendChild(val);
+      grp.appendChild(row);
+      btnEls[name] = btn;
+      valEls[name] = val;
+    }
+    panel.appendChild(grp);
+  }
+})();
+
+// ── anchor selection ───────────────────────────────────────────────────
+function selectAnchor(name) {
+  if (activeAnchor) btnEls[activeAnchor].classList.remove('active');
+  activeAnchor = name;
+  btnEls[name].classList.add('active');
+}
+selectAnchor('a1');
+
+// ── file loading ───────────────────────────────────────────────────────
+document.getElementById('folder-input').addEventListener('change', function() {
+  const files = Array.from(this.files)
+    .filter(f => IMG_EXTS.has(f.name.split('.').pop().toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
+
+  // revoke old URLs
+  images.forEach(im => URL.revokeObjectURL(im.url));
+
+  images = files.map(f => ({ name: f.name, url: URL.createObjectURL(f) }));
+  idx = 0;
+  if (images.length) showImage(0);
+});
+
+// ── navigation ─────────────────────────────────────────────────────────
+function navigate(delta) {
+  if (!images.length) return;
+  idx = (idx + delta + images.length) % images.length;
+  showImage(idx);
+}
+document.getElementById('btn-prev').addEventListener('click', () => navigate(-1));
+document.getElementById('btn-next').addEventListener('click', () => navigate(1));
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft')  navigate(-1);
+  if (e.key === 'ArrowRight') navigate(1);
+});
+
+// ── image display ──────────────────────────────────────────────────────
+function showImage(i) {
+  document.getElementById('nav-label').textContent =
+    `img ${i+1}/${images.length}:  ${images[i].name}`;
+
+  const im = new Image();
+  im.onload = () => {
+    imgEl = im;
+    fitCanvas();
+    redraw();
+  };
+  im.src = images[i].url;
+}
+
+function fitCanvas() {
+  if (!imgEl) return;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = rect.width  - 180;  // subtract panel width
+  canvas.height = rect.height;
+
+  scale = Math.min(canvas.width / imgEl.naturalWidth, canvas.height / imgEl.naturalHeight);
+  offX  = (canvas.width  - imgEl.naturalWidth  * scale) / 2;
+  offY  = (canvas.height - imgEl.naturalHeight * scale) / 2;
+}
+
+window.addEventListener('resize', () => { fitCanvas(); redraw(); });
+
+// ── coordinate helpers ─────────────────────────────────────────────────
+function canvasToImg(cx, cy) {
+  return [Math.round((cx - offX) / scale), Math.round((cy - offY) / scale)];
+}
+function imgToCanvas(ix, iy) {
+  return [ix * scale + offX, iy * scale + offY];
+}
+
+// ── canvas events ──────────────────────────────────────────────────────
+const HIT_THRESH = 14; // px canvas distance
+let dragState = null;  // {name} while dragging
+
+function hitTest(cx, cy) {
+  for (const name of ANCHORS) {
+    const v = anchors[name];
+    if (!v) continue;
+    const [vcx, vcy] = imgToCanvas(v.x, v.y);
+    if (Math.abs(cx - vcx) < HIT_THRESH && Math.abs(cy - vcy) < HIT_THRESH)
+      return {name};
+  }
+  return null;
+}
+
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  clearActive();
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (dragState) {
+    const [ix, iy] = canvasToImg(e.offsetX, e.offsetY);
+    anchors[dragState.name] = {x: ix, y: iy};
+    redraw();
+    return;
+  }
+  canvas.style.cursor = hitTest(e.offsetX, e.offsetY) ? 'grab' : 'crosshair';
+});
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const hit = hitTest(e.offsetX, e.offsetY);
+  if (hit) {
+    dragState = hit;
+    canvas.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (e.button !== 0) return;
+  if (dragState) {
+    dragState = null;
+    canvas.style.cursor = 'crosshair';
+    return;
+  }
+  // no drag → place active anchor
+  if (!activeAnchor || !imgEl) return;
+  if (e.ctrlKey || e.metaKey) { clearActive(); return; }
+
+  const [ix, iy] = canvasToImg(e.offsetX, e.offsetY);
+  anchors[activeAnchor] = {x: ix, y: iy};
+  const i = ANCHORS.indexOf(activeAnchor);
+  if (i + 1 < ANCHORS.length) selectAnchor(ANCHORS[i + 1]);
+  redraw();
+});
+
+canvas.addEventListener('mouseleave', () => { dragState = null; });
+
+function clearActive() {
+  if (!activeAnchor) return;
+  anchors[activeAnchor] = null;
+  redraw();
+}
+
+// ── drawing ────────────────────────────────────────────────────────────
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (imgEl) {
+    ctx.drawImage(imgEl,
+      offX, offY,
+      imgEl.naturalWidth * scale,
+      imgEl.naturalHeight * scale
+    );
+  }
+  drawMarkers();
+  updateInfoBar();
+  updatePanel();
+}
+
+function drawMarkers() {
+  for (let d = 1; d <= 4; d++) {
+    const a = anchors[`a${d}`];
+    const g = anchors[`g${d}`];
+    const b = anchors[`b${d}`];
+
+    if (a) crosshair(...imgToCanvas(a.x, a.y), `a${d}`, '#a6e3a1', 10);
+    if (g) crosshair(...imgToCanvas(g.x, g.y), `g${d}`, '#a6e3a1', 10);
+    if (b) crosshair(...imgToCanvas(b.x, b.y), `b${d}`, '#a6e3a1', 10);
+
+    if (a && g && b) {
+      const segs = deriveSegments(a.x, a.y, g.x, g.y, b.x, b.y);
+      for (const [s, [sx, sy]] of Object.entries(segs)) {
+        if (s === 'a' || s === 'b' || s === 'g') continue; // covered by green anchors
+        crosshair(...imgToCanvas(sx, sy), `${s}${d}`, '#89b4fa', 6);
+      }
+    }
+  }
+}
+
+function crosshair(cx, cy, lbl, color, size) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(cx - size, cy); ctx.lineTo(cx + size, cy);
+  ctx.moveTo(cx, cy - size); ctx.lineTo(cx, cy + size);
+  ctx.stroke();
+  if (lbl) label(cx + 3, cy - size - 1, lbl, color, 'bottom');
+}
+
+function label(x, y, text, color, baseline) {
+  ctx.font = 'bold 10px monospace';
+  ctx.fillStyle = color;
+  ctx.textBaseline = baseline || 'alphabetic';
+  ctx.fillText(text, x, y);
+}
+
+// ── info bar + panel ───────────────────────────────────────────────────
+function updateInfoBar() {
+  const parts = [];
+  for (let d = 1; d <= 4; d++) {
+    const a = anchors[`a${d}`], g = anchors[`g${d}`], b = anchors[`b${d}`];
+    const as = a ? `(${a.x},${a.y})` : '?';
+    const gs = g ? `(${g.x},${g.y})` : '?';
+    const bs = b ? `(${b.x},${b.y})` : '?';
+    parts.push(`a${d}=${as}  g${d}=${gs}  b${d}=${bs}`);
+  }
+  infobar.textContent = parts.join('   │   ');
+}
+
+function updatePanel() {
+  for (const name of ANCHORS) {
+    const v = anchors[name];
+    if (v === null || v === undefined) {
+      valEls[name].textContent = '—';
+    } else {
+      valEls[name].textContent = `(${v.x}, ${v.y})`;
+    }
+  }
+}
+
+// ── init ───────────────────────────────────────────────────────────────
+updateInfoBar();
+updatePanel();
+</script>
+</body>
+</html>

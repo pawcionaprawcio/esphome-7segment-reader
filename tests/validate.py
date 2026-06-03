@@ -18,26 +18,22 @@ from pathlib import Path
 from PIL import Image
 
 
-def derive_segment_centers(a, g, bx):
+def derive_segment_centers(a, g, b):
     ax, ay = a
     gx, gy = g
-    x_right = bx
-    x_left = 2 * ax - bx
-    y_top = ay
-    y_mid = gy
-    y_bot = 2 * gy - ay
-    y_th = (ay + gy) // 2
-    y_bh = (gy + y_bot) // 2
+    bx, by = b
+    dx = gx - ax  # down vector x
+    dy = gy - ay  # down vector y
     return {
-        'a':   (ax,      y_top),
-        'b':   (x_right, y_th),
-        'c':   (x_right, y_bh),
-        'd':   (ax,      y_bot),
-        'e':   (x_left,  y_bh),
-        'f':   (x_left,  y_th),
-        'g':   (gx,      y_mid),
-        'bg0': (ax,      y_th),   # upper interior background reference
-        'bg1': (ax,      y_bh),   # lower interior background reference
+        'a':   (ax,           ay),           # anchor a
+        'b':   (bx,           by),           # anchor b
+        'c':   (bx + dx,      by + dy),      # b + down
+        'd':   (2*gx - ax,    2*gy - ay),    # 2g - a
+        'e':   (2*gx - bx,    2*gy - by),    # 2g - b
+        'f':   (ax+gx - bx,   ay+gy - by),   # a + g - b
+        'g':   (gx,           gy),           # anchor g
+        'bg0': ((ax+gx)//2,   (ay+gy)//2),   # upper interior background reference
+        'bg1': ((3*gx-ax)//2, (3*gy-ay)//2), # lower interior background reference
     }
 
 
@@ -112,22 +108,23 @@ def sample_brightness(pixels, width, height, cx, cy, radius=4):
 #
 # To calibrate for your own setup:
 #   1. Save a camera snapshot (enable esp32_camera_web_server in ESPHome)
-#   2. Open in any image editor, note coords for each digit:
-#      a  = [x, y] of the TOP HORIZONTAL segment center
-#      g  = [x, y] of the MIDDLE HORIZONTAL segment center
-#      bx = x of the TOP-RIGHT VERTICAL segment center
-#   3. Run:  python tests/validate.py --debug
-#   4. Adjust until all digits decode correctly
+#   2. Open calibration.html, load the snapshot directory
+#   3. Place anchors:
+#      a = center of TOP HORIZONTAL segment
+#      g = center of MIDDLE HORIZONTAL segment
+#      b = center of TOP-RIGHT VERTICAL segment (the b-segment itself)
+#   4. Run:  python tests/validate.py --debug
+#   5. Adjust until all digits decode correctly
 
 DIGIT_ANCHORS = [
-    # digit 0 (leftmost)
-    {"a": (105, 143), "g": (105, 249), "bx": 140},
+    # digit 0 (leftmost)  — by = (ay+gy)//2 = (143+249)//2 = 196
+    {"a": (105, 143), "g": (105, 249), "b": (140, 196)},
     # digit 1
-    {"a": (230, 143), "g": (230, 249), "bx": 265},
+    {"a": (230, 143), "g": (230, 249), "b": (265, 196)},
     # digit 2
-    {"a": (362, 143), "g": (362, 249), "bx": 398},
+    {"a": (362, 143), "g": (362, 249), "b": (398, 196)},
     # digit 3 (rightmost)
-    {"a": (485, 143), "g": (485, 249), "bx": 515},
+    {"a": (485, 143), "g": (485, 249), "b": (515, 196)},
 ]
 SAMPLE_RADIUS = 4
 DISPLAY_OFF_THRESHOLD = 20
@@ -144,7 +141,7 @@ def process_image(path, debug=False):
 
     bg_refs = []
     for anchors in DIGIT_ANCHORS:
-        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["bx"])
+        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["b"])
         seg_order = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
         bright = [sample_brightness(pixels, w, h, *centers[s], radius=SAMPLE_RADIUS)
                   for s in seg_order]

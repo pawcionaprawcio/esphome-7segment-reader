@@ -20,10 +20,10 @@ IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_3"
 
 # Calibrated for test_cases/size_3 (800x600).
 DIGIT_ANCHORS = [
-    {"a": (135, 230), "g": (135, 357), "bx": 172},
-    {"a": (292, 230), "g": (292, 357), "bx": 332},
-    {"a": (449, 230), "g": (449, 357), "bx": 484},
-    {"a": (603, 230), "g": (603, 357), "bx": 636},
+    {"a": (135, 230), "g": (135, 357), "b": (172, 293)},  # by = (230+357)//2
+    {"a": (292, 230), "g": (292, 357), "b": (332, 293)},
+    {"a": (449, 230), "g": (449, 357), "b": (484, 293)},
+    {"a": (603, 230), "g": (603, 357), "b": (636, 293)},
 ]
 SAMPLE_RADIUS = 5
 DISPLAY_OFF_THRESHOLD = 60  # sensor noise in darkness can reach ~54 at high gain
@@ -56,7 +56,7 @@ def decode_image(path):
     digit_segments = []
 
     for anchors in DIGIT_ANCHORS:
-        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["bx"])
+        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["b"])
         bright = [sample_brightness(pixels, w, h, *centers[s], radius=SAMPLE_RADIUS)
                   for s in "abcdefg"]
         digit_segments.append(bright)

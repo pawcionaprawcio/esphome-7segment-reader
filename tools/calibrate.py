@@ -55,6 +55,40 @@ def band_center(start, end):
     return (start + end) // 2
 
 
+def find_peaks(profile, window=15, min_relative_prominence=0.10, search_range=80):
+    """
+    Find local maxima in 1-D raw brightness profile.
+
+    window: half-width of local-max check (peak must be highest in ±window)
+    min_relative_prominence: peak must rise this fraction above the higher of its
+        two surrounding valley minima (relative to global max)
+    search_range: how far left/right to search for valley minima
+
+    Returns sorted list of peak y indices.
+    """
+    n = len(profile)
+    if not profile or max(profile) == 0:
+        return []
+    maxv = max(profile)
+    candidates = []
+    for i in range(window, n - window):
+        if profile[i] == max(profile[max(0, i - window):i + window + 1]):
+            left_min = min(profile[max(0, i - search_range):i + 1])
+            right_min = min(profile[i:min(n, i + search_range)])
+            prominence = (profile[i] - max(left_min, right_min)) / maxv
+            if prominence >= min_relative_prominence:
+                candidates.append((i, profile[i]))
+    # Deduplicate: multiple candidates within window → keep highest
+    peaks = []
+    for i, v in candidates:
+        if peaks and i - peaks[-1] < window:
+            if v > profile[peaks[-1]]:
+                peaks[-1] = i
+        else:
+            peaks.append(i)
+    return peaks
+
+
 def find_lower_row_start(row_sum, min_gap_height=8, dark_frac=0.12):
     """Find y where lower display row starts (after gap between rows)."""
     if not row_sum or max(row_sum) == 0:
@@ -116,12 +150,12 @@ def average_col_bands(all_bands):
 # Step 2: build per-digit center-strip MAX across all images
 # ---------------------------------------------------------------------------
 
-def build_center_strip_max(images, threshold, col_bands, w, h):
+def build_center_strip_max(images, col_bands, w, h):
     """
     For each digit, build a per-row MAX brightness value using only
     the center strip of that digit's x-band.
 
-    Returns: list of n_digits row-profiles (length h each), with MAX values.
+    Returns: list of n_digits raw brightness profiles (int 0-255, length h each).
     """
     n_digits = len(col_bands)
     strip_maxes = [[-1] * h for _ in range(n_digits)]
@@ -149,53 +183,44 @@ def build_center_strip_max(images, threshold, col_bands, w, h):
                 if avg > strip_maxes[d][y]:
                     strip_maxes[d][y] = avg
 
-    # Convert to bright mask (1/0) using threshold
-    strip_masks = []
-    for d in range(n_digits):
-        row_mask = [1 if v > threshold else 0 for v in strip_maxes[d]]
-        strip_masks.append(row_mask)
-
-    return strip_masks
+    # Replace sentinel -1 with 0 (rows not covered by any image)
+    return [[max(0, v) for v in profile] for profile in strip_maxes]
 
 
 # ---------------------------------------------------------------------------
 # Step 3: find y-positions from aggregated center-strip profiles
 # ---------------------------------------------------------------------------
 
-def detect_y_positions(strip_masks, col_bands, w, h, y_start, debug=False):
+def detect_y_positions(strip_maxes, col_bands, w, h, y_start, debug=False):
     """
     Returns list of n_digits dicts: {"ax", "ay", "gy", "bx"} or None.
-    Uses center-strip MAX profiles for ay/gy, full mask for bx.
+    Uses center-strip MAX raw brightness profiles for ay/gy detection.
     """
     results = []
     for d, (cx0, cx1) in enumerate(col_bands):
         ax_center = (cx0 + cx1) // 2
-        row_profile = strip_masks[d]
+        row_profile = strip_maxes[d]
 
-        # Scan from y_start downward
         local_profile = row_profile[y_start:]
-        local_bands = find_bands(local_profile, min_gap=5, min_width=8, threshold_frac=0.2)
+        peaks = find_peaks(local_profile, window=15, min_relative_prominence=0.10,
+                           search_range=80)
 
         if debug:
-            full_coords = [(b[0] + y_start, b[1] + y_start) for b in local_bands]
+            full_coords = [p + y_start for p in peaks]
             strip_half = max(4, (cx1 - cx0) // 6)
             sx0 = max(0, ax_center - strip_half)
             sx1 = min(w - 1, ax_center + strip_half)
             print(f"  digit {d} x=[{cx0},{cx1}] strip=[{sx0},{sx1}]: "
-                  f"row_bands={full_coords}")
+                  f"peaks={full_coords}")
 
-        if len(local_bands) < 3:
-            print(f"  Digit {d}: {len(local_bands)} horiz bands (need 3)")
+        if len(peaks) < 2:
+            print(f"  Digit {d}: {len(peaks)} peaks found (need ≥2)")
             return None
 
-        # 3 bands with most total brightness
-        scored = sorted(local_bands,
-                        key=lambda b: sum(local_profile[b[0]:b[1]+1]),
-                        reverse=True)[:3]
-        top3 = sorted(scored, key=lambda b: b[0])
-
-        ay = band_center(*top3[0]) + y_start
-        gy = band_center(*top3[1]) + y_start
+        # Sort by y-position: peaks[0]=segment a (top), peaks[1]=segment g (middle)
+        peaks_sorted = sorted(peaks)
+        ay = peaks_sorted[0] + y_start
+        gy = peaks_sorted[1] + y_start
 
         if debug:
             print(f"    -> ax={ax_center} ay={ay} gy={gy}")
@@ -334,11 +359,11 @@ def main():
     if args.debug:
         print(f"y_start={y_start}\n")
 
-    # --- Step 3: center-strip MAX row profiles ---
-    strip_masks = build_center_strip_max(images, args.threshold, col_bands, w, h)
+    # --- Step 3: center-strip MAX row profiles (raw brightness) ---
+    strip_maxes = build_center_strip_max(images, col_bands, w, h)
 
-    # --- Step 4: detect y-positions ---
-    results = detect_y_positions(strip_masks, col_bands, w, h, y_start, debug=args.debug)
+    # --- Step 4: detect y-positions via peak detection ---
+    results = detect_y_positions(strip_maxes, col_bands, w, h, y_start, debug=args.debug)
     if results is None:
         print("\nCalibration failed. Try --threshold, --y-start, or --debug")
         sys.exit(1)

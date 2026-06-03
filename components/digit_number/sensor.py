@@ -42,7 +42,7 @@ DigitAnchors = digit_number_ns.struct("DigitAnchors")
 DIGIT_SCHEMA = cv.Schema({
     cv.Required("a"): cv.All([cv.uint16_t], cv.Length(min=2, max=2)),
     cv.Required("g"): cv.All([cv.uint16_t], cv.Length(min=2, max=2)),
-    cv.Required("b"): cv.uint16_t,
+    cv.Required("b"): cv.All([cv.uint16_t], cv.Length(min=2, max=2)),
 })
 
 CONFIG_SCHEMA = cv.All(
@@ -95,7 +95,8 @@ async def to_code(config):
             ("ay", digit["a"][1]),
             ("gx", digit["g"][0]),
             ("gy", digit["g"][1]),
-            ("bx", digit["b"]),
+            ("bx", digit["b"][0]),
+            ("by", digit["b"][1]),
         )
         cg.add(var.add_digit(anchors))
 

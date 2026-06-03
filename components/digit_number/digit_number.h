@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "1.4.2"
+#define DIGIT_NUMBER_VERSION "2.0.1"
 
 #include <array>
 #include <memory>
@@ -19,9 +19,9 @@ namespace digit_number {
 enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1 };
 
 struct DigitAnchors {
-  uint16_t ax, ay;  // top horizontal segment center
-  uint16_t gx, gy;  // middle horizontal segment center
-  uint16_t bx;      // top-right vertical segment x (y ignored)
+  uint16_t ax, ay;  // top horizontal segment center (a)
+  uint16_t gx, gy;  // middle horizontal segment center (g)
+  uint16_t bx, by;  // top-right vertical segment center (b)
 };
 
 struct SegmentCenter {

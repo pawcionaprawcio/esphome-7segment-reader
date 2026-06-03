@@ -35,52 +35,55 @@ Obecny `find_bands` z `threshold_frac=0.15` scala wszystkie 3 piki w jeden band.
    właściwym tropie — x-bands działają (`col_bands` poprawnie ≈4), ale y detection
    wciąż sypie się przez brak ciemnych przerw.
 
-## TODO: następny krok
+## Zaimplementowana naprawa (2026-06-02)
 
-Zmienić `detect_y_positions` z **band detection → peak detection**:
+### Krytyczny błąd w oryginalnym planie
+
+Pierwotne TODO zakładało `find_peaks` na binarnym profilu (0/1). To nic nie dawało —
+peak detection na binarnym sygnale = to samo co find_bands.
+
+Rzeczywisty problem: segment **d** ma jasność ≈149, threshold=150 → 149 < 150 → **0 w masce**.
+Segment znika z binarnego profilu zanim `find_bands` go zobaczy.
+
+### Właściwa naprawa
+
+`build_center_strip_max` zwraca teraz **raw brightness** (int 0–255), nie binarną maskę.
+`detect_y_positions` wywołuje `find_peaks` na surowych wartościach.
 
 ```python
-def find_peaks(profile, window=10, min_relative_prominence=0.15):
+def find_peaks(profile, window=15, min_relative_prominence=0.10, search_range=80):
     """
-    Find local maxima in 1-D profile.
-    min_relative_prominence: peak must be this fraction above the deeper of
-    its two surrounding troughs (relative to global max).
-    Returns sorted list of peak y indices.
+    Find local maxima in 1-D raw brightness profile.
+    search_range=80 — sięga do dołków między segmentami (~76px od peaka).
     """
-    n = len(profile)
-    maxv = max(profile) if profile else 1
-    candidates = []
-    for i in range(window, n - window):
-        if profile[i] == max(profile[max(0,i-window):i+window+1]):
-            left_min  = min(profile[max(0, i - 2*window) : i + 1])
-            right_min = min(profile[i : min(n, i + 2*window)])
-            prominence = (profile[i] - max(left_min, right_min)) / maxv
-            if prominence >= min_relative_prominence:
-                candidates.append((i, profile[i]))
-    # Deduplicate: if multiple candidates within window, keep highest
-    peaks = []
-    for i, v in candidates:
-        if peaks and i - peaks[-1] < window:
-            if v > profile[peaks[-1]]:
-                peaks[-1] = i
-        else:
-            peaks.append(i)
-    return peaks
 ```
 
-Zamiast `find_bands(local_profile)` → `find_peaks(local_profile, window=10)`.
-Oczekiwane wyniki dla size_4:
-- digit 0: peaks ≈ [45, 161, 281] (offset od y_start=245) → ay=290, gy=406, dy=526
+Kluczowy parametr: `search_range=80` (nie 2*window=20 jak w oryginalnym planie).
+Segmenty są ≈76–77px od siebie — `search_range=20` liczyłby prominence ze zbocza,
+nie z dołka, i prominencja byłaby zaniżona (~0.14 < 0.15 → odrzut peaka).
 
-## Architektura tools/calibrate.py (obecna)
+Weryfikacja dla size_4 (dane z doca):
+- peak a: 255, trough: 69 → prominence (255−69)/255 = 0.73 ✓
+- peak g: 229, trough: 46 → prominence (229−46)/255 = 0.72 ✓
+- peak d: 149, trough: 46 → prominence (149−46)/255 = 0.40 ✓
+
+### Zmiana w `detect_y_positions`
+
+Zamiast 3 pasm → ≥2 peaks posortowane po y:
+- `peaks_sorted[0]` + y_start → **ay** (segment a, top)
+- `peaks_sorted[1]` + y_start → **gy** (segment g, middle)
+
+Nie wymaga 3 peaks (segment d nie jest potrzebny do kalibracji).
+
+## Architektura tools/calibrate.py (aktualna)
 
 ```
 main()
   ├── load images, filter skips
-  ├── detect_col_bands_single() per image → average_col_bands()   ← działa
-  ├── find_lower_row_start() on first image row profile           ← działa
-  ├── build_center_strip_max() → per-digit center-strip MAX mask  ← działa
-  ├── detect_y_positions()  ← TU JEST PROBLEM (band→peak fix)
+  ├── detect_col_bands_single() per image → average_col_bands()        ← działa
+  ├── find_lower_row_start() on first image row profile                ← działa
+  ├── build_center_strip_max() → per-digit center-strip MAX raw [0-255] ← działa
+  ├── detect_y_positions() via find_peaks() na raw brightness           ← naprawione
   └── detect_bx_from_images()
 ```
 

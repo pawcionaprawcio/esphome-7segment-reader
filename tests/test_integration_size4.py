@@ -30,10 +30,10 @@ IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_4"
 # Calibrated for test_cases/size_4 (800x600, lower display row).
 # Digits shifted down vs size_3 — camera position/zoom changed.
 DIGIT_ANCHORS = [
-    {"a": (144, 265), "g": (144, 398), "bx": 190},
-    {"a": (296, 265), "g": (296, 398), "bx": 335},
-    {"a": (447, 265), "g": (447, 398), "bx": 490},
-    {"a": (617, 265), "g": (617, 398), "bx": 663},
+    {"a": (144, 265), "g": (144, 398), "b": (190, 331)},  # by = (265+398)//2
+    {"a": (296, 265), "g": (296, 398), "b": (335, 331)},
+    {"a": (447, 265), "g": (447, 398), "b": (490, 331)},
+    {"a": (617, 265), "g": (617, 398), "b": (663, 331)},
 ]
 SAMPLE_RADIUS = 5
 DISPLAY_OFF_THRESHOLD = 60
@@ -98,7 +98,7 @@ def decode_image(path):
     digit_segments = []
 
     for anchors in DIGIT_ANCHORS:
-        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["bx"])
+        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["b"])
         bright = [_sample(pixels, w, h, *centers[s], s) for s in "abcdefg"]
         digit_segments.append(bright)
         all_bright.extend(bright)

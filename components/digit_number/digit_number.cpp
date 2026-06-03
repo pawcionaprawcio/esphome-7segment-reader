@@ -24,24 +24,19 @@ const uint8_t DigitNumber::SEGMENT_PATTERNS_[10] = {
 };
 
 DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
-  const uint16_t x_right = a.bx;
-  const uint16_t x_left  = (uint16_t)(2 * a.ax - a.bx);
-  const uint16_t y_top   = a.ay;
-  const uint16_t y_mid   = a.gy;
-  const uint16_t y_bot   = (uint16_t)(2 * a.gy - a.ay);
-  const uint16_t y_th    = (uint16_t)((a.ay + a.gy) / 2);
-  const uint16_t y_bh    = (uint16_t)((a.gy + y_bot) / 2);
+  const int32_t dx = (int32_t)a.gx - a.ax;  // down vector x (g - a)
+  const int32_t dy = (int32_t)a.gy - a.ay;  // down vector y (g - a)
 
   DigitGeometry geo;
-  geo.seg[0] = {a.ax,    y_top};   // a
-  geo.seg[1] = {x_right, y_th};    // b
-  geo.seg[2] = {x_right, y_bh};    // c
-  geo.seg[3] = {a.ax,    y_bot};   // d
-  geo.seg[4] = {x_left,  y_bh};    // e
-  geo.seg[5] = {x_left,  y_th};    // f
-  geo.seg[6] = {a.gx,    y_mid};   // g
-  geo.bg[0]  = {a.ax,    y_th};    // upper interior (between a and g, centered)
-  geo.bg[1]  = {a.ax,    y_bh};    // lower interior (between g and d, centered)
+  geo.seg[0] = {a.ax,                              a.ay};                              // a = anchor a
+  geo.seg[1] = {a.bx,                              a.by};                              // b = anchor b
+  geo.seg[2] = {(uint16_t)(a.bx + dx),             (uint16_t)(a.by + dy)};             // c = b + down
+  geo.seg[3] = {(uint16_t)(2*a.gx - a.ax),         (uint16_t)(2*a.gy - a.ay)};         // d = 2g - a
+  geo.seg[4] = {(uint16_t)(2*a.gx - a.bx),         (uint16_t)(2*a.gy - a.by)};         // e = 2g - b
+  geo.seg[5] = {(uint16_t)(a.ax + a.gx - a.bx),    (uint16_t)(a.ay + a.gy - a.by)};    // f = a + g - b
+  geo.seg[6] = {a.gx,                              a.gy};                              // g = anchor g
+  geo.bg[0]  = {(uint16_t)((a.ax + a.gx) / 2),     (uint16_t)((a.ay + a.gy) / 2)};     // upper interior
+  geo.bg[1]  = {(uint16_t)((3*a.gx - a.ax) / 2),   (uint16_t)((3*a.gy - a.ay) / 2)};   // lower interior
   return geo;
 }
 
