@@ -211,6 +211,10 @@ void DigitNumber::process_image_() {
   if (all_dash) {
     ESP_LOGD(TAG, "Display ready (all dashes)");
     publish_all_("ready");
+    if (trigger_pin_ != nullptr && !trigger_busy_) {
+      ESP_LOGI(TAG, "Display ready — triggering measurement");
+      do_trigger_();
+    }
     return;
   }
 
