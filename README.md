@@ -71,7 +71,7 @@ For each digit, provide **3 pixel coordinates** from a camera snapshot:
 | Anchor | What to measure |
 |--------|----------------|
 | `a`    | Center pixel of the **top horizontal** segment `[x, y]` |
-| `g`    | Center pixel of the **middle horizontal** segment `[x, y]` |
+| `d`    | Center pixel of the **bottom horizontal** segment `[x, y]` |
 | `b`    | X coordinate of the **top-right vertical** segment (integer) |
 
 ```
@@ -84,15 +84,16 @@ snapshot pixel coords:
   f  │              │ b ← measure x of this bar's center
      │              │     (use b=x, any y in the top-right bar)
      ┌──────────────┐
-     │  mid horiz   │ ← g=[cx, y_mid]
+     │  mid horiz   │ ← g (derived = (a+d)/2)
      └──────────────┘
   e  │              │ c  (derived)
      │              │
+     ┌──────────────┐
+     │  bot horiz   │ ← d=[cx, y_bot]
      └──────────────┘
-        d  (derived)
 ```
 
-`g.x` and `a.x` should both be at the **horizontal center** of the digit.  
+`d.x` and `a.x` should both be at the **horizontal center** of the digit.  
 `b` is just an integer (x coordinate) — the component only uses the x value to derive left/right positions.
 
 ### Calibration steps
@@ -110,7 +111,7 @@ snapshot pixel coords:
 
 4. For **each digit** (left to right):
    - Hover over the center of the top horizontal bar → note `[x, y]` → this is `a`
-   - Hover over the center of the middle horizontal bar → note `[x, y]` → this is `g`
+   - Hover over the center of the bottom horizontal bar → note `[x, y]` → this is `d`
    - Hover over any point on the top-right vertical bar → note `x` only → this is `b`
 
 5. Fill the coordinates into the YAML config (see example below).
@@ -141,16 +142,16 @@ sensor:
     display_off_threshold: 10 # max brightness below this = display off
     digits:
       - a: [195, 175]         # top horizontal center [x, y]
-        g: [195, 220]         # middle horizontal center [x, y]
+        d: [195, 265]         # bottom horizontal center [x, y]
         b: 250                # top-right vertical x coordinate
       - a: [285, 175]
-        g: [285, 220]
+        d: [285, 265]
         b: 340
       - a: [375, 175]
-        g: [375, 220]
+        d: [375, 265]
         b: 430
       - a: [460, 175]
-        g: [460, 220]
+        d: [460, 265]
         b: 515
 ```
 
@@ -161,7 +162,7 @@ sensor:
 | `camera_id` | id | required | Reference to `esp32_camera` component |
 | `digits` | list[4] | required | Exactly 4 digit definitions |
 | `digits[].a` | [x, y] | required | Top horizontal segment center pixel |
-| `digits[].g` | [x, y] | required | Middle horizontal segment center pixel |
+| `digits[].d` | [x, y] | required | Bottom horizontal segment center pixel |
 | `digits[].b` | int | required | X coordinate of top-right vertical segment |
 | `sample_radius` | int | 2 | Radius of averaging patch in pixels |
 | `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(min+max)/2` per frame |
@@ -205,7 +206,7 @@ sensor:
 → Coordinates are off. Run `python tests/validate.py --debug` with your image to see per-segment brightness values.
 
 **Some digits correct, others `?`**  
-→ Adjust `a`, `g`, or `b` for the failing digit. The `b` x-coordinate is often the most sensitive — try moving it 5–10 px inward from the right edge.
+→ Adjust `a`, `d`, or `b` for the failing digit. The `b` x-coordinate is often the most sensitive — try moving it 5–10 px inward from the right edge.
 
 **Values flicker**  
 → Increase `sample_radius` (try 3–5). Or set a fixed `threshold` value once you know a stable level.
