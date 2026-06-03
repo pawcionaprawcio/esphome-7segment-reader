@@ -82,10 +82,10 @@ def test_state_fail_not_confused_with_ready_when_mixed():
 IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_3"
 
 PROD_ANCHORS = [
-    {"a": (135, 230), "g": (135, 357), "b": (172, 293)},  # by = (230+357)//2
-    {"a": (292, 230), "g": (292, 357), "b": (332, 293)},
-    {"a": (449, 230), "g": (449, 357), "b": (484, 293)},
-    {"a": (603, 230), "g": (603, 357), "b": (636, 293)},
+    {"a": (135, 230), "d": (135, 484), "b": (172, 293)},  # by = (230+357)//2, gy=(230+484)//2=357
+    {"a": (292, 230), "d": (292, 484), "b": (332, 293)},
+    {"a": (449, 230), "d": (449, 484), "b": (484, 293)},
+    {"a": (603, 230), "d": (603, 484), "b": (636, 293)},
 ]
 PROD_SAMPLE_RADIUS = 5
 PROD_OFF_THRESHOLD = 20
@@ -97,7 +97,7 @@ def _load_state(filename):
     w, h = img.size
     all_bright, digit_segs, bg_refs = [], [], []
     for a in PROD_ANCHORS:
-        centers = derive_segment_centers(a["a"], a["g"], a["b"])
+        centers = derive_segment_centers(a["a"], a["d"], a["b"])
         bright = [sample_brightness(pixels, w, h, *centers[s], radius=PROD_SAMPLE_RADIUS)
                   for s in "abcdefg"]
         digit_segs.append(bright)

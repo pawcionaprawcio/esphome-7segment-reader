@@ -24,19 +24,21 @@ const uint8_t DigitNumber::SEGMENT_PATTERNS_[10] = {
 };
 
 DigitGeometry DigitNumber::derive_geometry_(const DigitAnchors &a) const {
-  const int32_t dx = (int32_t)a.gx - a.ax;  // down vector x (g - a)
-  const int32_t dy = (int32_t)a.gy - a.ay;  // down vector y (g - a)
+  const int32_t gx = ((int32_t)a.ax + a.dx) / 2;  // middle segment x = (a + d) / 2
+  const int32_t gy = ((int32_t)a.ay + a.dy) / 2;  // middle segment y = (a + d) / 2
+  const int32_t dvx = gx - a.ax;                   // down vector x (g - a)
+  const int32_t dvy = gy - a.ay;                   // down vector y (g - a)
 
   DigitGeometry geo;
-  geo.seg[0] = {a.ax,                              a.ay};                              // a = anchor a
-  geo.seg[1] = {a.bx,                              a.by};                              // b = anchor b
-  geo.seg[2] = {(uint16_t)(a.bx + dx),             (uint16_t)(a.by + dy)};             // c = b + down
-  geo.seg[3] = {(uint16_t)(2*a.gx - a.ax),         (uint16_t)(2*a.gy - a.ay)};         // d = 2g - a
-  geo.seg[4] = {(uint16_t)(2*a.gx - a.bx),         (uint16_t)(2*a.gy - a.by)};         // e = 2g - b
-  geo.seg[5] = {(uint16_t)(a.ax + a.gx - a.bx),    (uint16_t)(a.ay + a.gy - a.by)};    // f = a + g - b
-  geo.seg[6] = {a.gx,                              a.gy};                              // g = anchor g
-  geo.bg[0]  = {(uint16_t)((a.ax + a.gx) / 2),     (uint16_t)((a.ay + a.gy) / 2)};     // upper interior
-  geo.bg[1]  = {(uint16_t)((3*a.gx - a.ax) / 2),   (uint16_t)((3*a.gy - a.ay) / 2)};   // lower interior
+  geo.seg[0] = {a.ax,                           a.ay};                           // a = anchor a
+  geo.seg[1] = {a.bx,                           a.by};                           // b = anchor b
+  geo.seg[2] = {(uint16_t)(a.bx + dvx),         (uint16_t)(a.by + dvy)};         // c = b + down
+  geo.seg[3] = {a.dx,                           a.dy};                           // d = anchor d
+  geo.seg[4] = {(uint16_t)(a.ax + a.dx - a.bx), (uint16_t)(a.ay + a.dy - a.by)}; // e = a + d - b
+  geo.seg[5] = {(uint16_t)(a.ax + gx - a.bx),   (uint16_t)(a.ay + gy - a.by)};   // f = a + g - b
+  geo.seg[6] = {(uint16_t)gx,                   (uint16_t)gy};                   // g = (a + d) / 2
+  geo.bg[0]  = {(uint16_t)((a.ax + gx) / 2),    (uint16_t)((a.ay + gy) / 2)};    // upper interior
+  geo.bg[1]  = {(uint16_t)((a.dx + gx) / 2),    (uint16_t)((a.dy + gy) / 2)};    // lower interior
   return geo;
 }
 

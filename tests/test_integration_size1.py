@@ -29,12 +29,13 @@ IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_1"
 
 # Calibrated for test_cases/size_4 (800x600, lower display row).
 # Digits shifted down vs size_3 — camera position/zoom changed.
-#a1=(124,190) g1=(118,314) b1=(161,245) │ a2=(286,198) g2=(273,320) b2=(323,256) │ a3=(438,200) g3=(432,320) b3=(480,256) │ a4=(600,204) g4=(591,325) b4=(643,263)
+# a1=(128,188) d1=(110,437) b1=(169,253) │ a2=(282,192) d2=(271,443) b2=(324,259) │
+# a3=(444,197) d3=(423,445) b3=(482,258) │ a4=(603,201) d4=(586,450) b4=(642,263)
 DIGIT_ANCHORS = [
-    {"a": (124,190), "g": (118,314), "b": (161,245)},
-    {"a": (286,198), "g": (273,320), "b": (323,256)},
-    {"a": (438,200), "g": (432,320), "b": (480,256)},
-    {"a": (600,204), "g": (591,325), "b": (643,263)},
+    {"a": (128,188), "d": (110,437), "b": (169,253)},
+    {"a": (282,192), "d": (271,443), "b": (324,259)},
+    {"a": (444,197), "d": (423,445), "b": (482,258)},
+    {"a": (603,201), "d": (586,450), "b": (642,263)},
 ]
 SAMPLE_RADIUS = 5
 DISPLAY_OFF_THRESHOLD = 60
@@ -99,7 +100,7 @@ def decode_image(path):
     digit_segments = []
 
     for anchors in DIGIT_ANCHORS:
-        centers = derive_segment_centers(anchors["a"], anchors["g"], anchors["b"])
+        centers = derive_segment_centers(anchors["a"], anchors["d"], anchors["b"])
         bright = [_sample(pixels, w, h, *centers[s], s) for s in "abcdefg"]
         digit_segments.append(bright)
         all_bright.extend(bright)

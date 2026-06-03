@@ -193,8 +193,9 @@ def build_center_strip_max(images, col_bands, w, h):
 
 def detect_y_positions(strip_maxes, col_bands, w, h, y_start, debug=False):
     """
-    Returns list of n_digits dicts: {"ax", "ay", "gy", "bx"} or None.
-    Uses center-strip MAX raw brightness profiles for ay/gy detection.
+    Returns list of n_digits dicts: {"ax", "ay", "dy", "bx"} or None.
+    Uses center-strip MAX raw brightness profiles for ay/gy detection;
+    dy (bottom segment) is derived as dy = 2*gy - ay.
     """
     results = []
     for d, (cx0, cx1) in enumerate(col_bands):
@@ -221,11 +222,12 @@ def detect_y_positions(strip_maxes, col_bands, w, h, y_start, debug=False):
         peaks_sorted = sorted(peaks)
         ay = peaks_sorted[0] + y_start
         gy = peaks_sorted[1] + y_start
+        dy = 2 * gy - ay  # derive bottom segment d = 2g - a
 
         if debug:
-            print(f"    -> ax={ax_center} ay={ay} gy={gy}")
+            print(f"    -> ax={ax_center} ay={ay} gy={gy} dy={dy}")
 
-        results.append({"ax": ax_center, "ay": ay, "gy": gy, "bx": None})
+        results.append({"ax": ax_center, "ay": ay, "dy": dy, "bx": None})
 
     return results
 
@@ -239,7 +241,7 @@ def detect_bx_from_images(images, threshold, col_bands, results, w, h):
     # Build partial MAX for bx region per digit
     for d, (cx0, cx1) in enumerate(col_bands):
         ay = results[d]["ay"]
-        gy = results[d]["gy"]
+        gy = (ay + results[d]["dy"]) // 2  # middle segment y = (a + d) / 2
         ax_center = (cx0 + cx1) // 2
 
         y_top = max(0, ay - 15)
@@ -278,7 +280,7 @@ def print_yaml(anchors, label=""):
     print("digits:")
     for a in anchors:
         print(f"  - a: [{a['ax']}, {a['ay']}]")
-        print(f"    g: [{a['ax']}, {a['gy']}]")
+        print(f"    d: [{a['ax']}, {a['dy']}]")
         print(f"    b: {a['bx']}")
 
 
@@ -288,7 +290,7 @@ def print_python(anchors, label=""):
     print("DIGIT_ANCHORS = [")
     for a in anchors:
         print(f'    {{"a": ({a["ax"]}, {a["ay"]}), '
-              f'"g": ({a["ax"]}, {a["gy"]}), "bx": {a["bx"]}}},')
+              f'"d": ({a["ax"]}, {a["dy"]}), "bx": {a["bx"]}}},')
     print("]")
 
 

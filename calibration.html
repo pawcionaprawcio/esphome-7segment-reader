@@ -84,10 +84,10 @@ canvas {
   <canvas id="canvas"></canvas>
 </div>
 
-<div id="hint">LPM: place anchor &nbsp; PPM / Ctrl+click: clear &nbsp; ← →: navigate</div>
+<div id="hint">LMB: place anchor (a=top horiz, d=bottom horiz, b=top-right vert) &nbsp; RMB/Ctrl+click: clear &nbsp; ← →: navigate</div>
 
 <script>
-const ANCHORS = ['a1','g1','b1','a2','g2','b2','a3','g3','b3','a4','g4','b4'];
+const ANCHORS = ['a1','d1','b1','a2','d2','b2','a3','d3','b3','a4','d4','b4'];
 const IMG_EXTS = new Set(['jpg','jpeg','png','webp','bmp','gif']);
 
 // ── state ──────────────────────────────────────────────────────────────
@@ -99,19 +99,22 @@ let idx = 0;
 let imgEl = null;  // current loaded HTMLImageElement
 let scale = 1, offX = 0, offY = 0;
 
-// ── algorithm (port of validate.py) ───────────────────────────────────
-function deriveSegments(ax, ay, gx, gy, bx, by) {
-  const dx = gx - ax, dy = gy - ay;  // down vector
+// ── algorithm (port of digit_number.cpp) ──────────────────────────────
+function deriveSegments(ax, ay, dx, dy, bx, by) {
+  const gx = (ax + dx) >> 1;   // middle segment = (a + d) / 2
+  const gy = (ay + dy) >> 1;
+  const dvx = gx - ax;          // down vector
+  const dvy = gy - ay;
   return {
-    a:   [ax,                  ay],
-    b:   [bx,                  by],
-    c:   [bx + dx,             by + dy],
-    d:   [2*gx - ax,           2*gy - ay],
-    e:   [2*gx - bx,           2*gy - by],
-    f:   [ax+gx - bx,          ay+gy - by],
-    g:   [gx,                  gy],
-    bg0: [(ax+gx) >> 1,        (ay+gy) >> 1],
-    bg1: [(3*gx - ax) >> 1,    (3*gy - ay) >> 1],
+    a:   [ax,              ay],
+    b:   [bx,              by],
+    c:   [bx + dvx,        by + dvy],
+    d:   [dx,              dy],
+    e:   [ax + dx - bx,    ay + dy - by],
+    f:   [ax + gx - bx,    ay + gy - by],
+    g:   [gx,              gy],
+    bg0: [(ax + gx) >> 1,  (ay + gy) >> 1],
+    bg1: [(dx + gx) >> 1,  (dy + gy) >> 1],
   };
 }
 
@@ -132,7 +135,7 @@ const btnEls = {}, valEls = {};
     hdr.className = 'digit-header';
     hdr.textContent = `Digit ${d}`;
     grp.appendChild(hdr);
-    for (const p of ['a','g','b']) {
+    for (const p of ['a','d','b']) {
       const name = p + d;
       const row = document.createElement('div');
       row.className = 'anchor-row';
@@ -307,18 +310,18 @@ function redraw() {
 
 function drawMarkers() {
   for (let d = 1; d <= 4; d++) {
-    const a = anchors[`a${d}`];
-    const g = anchors[`g${d}`];
-    const b = anchors[`b${d}`];
+    const a  = anchors[`a${d}`];
+    const dn = anchors[`d${d}`];
+    const b  = anchors[`b${d}`];
 
-    if (a) crosshair(...imgToCanvas(a.x, a.y), `a${d}`, '#a6e3a1', 10);
-    if (g) crosshair(...imgToCanvas(g.x, g.y), `g${d}`, '#a6e3a1', 10);
-    if (b) crosshair(...imgToCanvas(b.x, b.y), `b${d}`, '#a6e3a1', 10);
+    if (a)  crosshair(...imgToCanvas(a.x, a.y),  `a${d}`,  '#a6e3a1', 10);
+    if (dn) crosshair(...imgToCanvas(dn.x, dn.y), `d${d}`, '#a6e3a1', 10);
+    if (b)  crosshair(...imgToCanvas(b.x, b.y),  `b${d}`,  '#a6e3a1', 10);
 
-    if (a && g && b) {
-      const segs = deriveSegments(a.x, a.y, g.x, g.y, b.x, b.y);
+    if (a && dn && b) {
+      const segs = deriveSegments(a.x, a.y, dn.x, dn.y, b.x, b.y);
       for (const [s, [sx, sy]] of Object.entries(segs)) {
-        if (s === 'a' || s === 'b' || s === 'g') continue; // covered by green anchors
+        if (s === 'a' || s === 'b' || s === 'd') continue; // covered by green anchors
         if (s === 'bg0' || s === 'bg1') {
           dot(...imgToCanvas(sx, sy), `${s}${d}`, '#89b4fa');
         } else {
@@ -359,11 +362,11 @@ function label(x, y, text, color, baseline) {
 function updateInfoBar() {
   const parts = [];
   for (let d = 1; d <= 4; d++) {
-    const a = anchors[`a${d}`], g = anchors[`g${d}`], b = anchors[`b${d}`];
-    const as = a ? `(${a.x},${a.y})` : '?';
-    const gs = g ? `(${g.x},${g.y})` : '?';
-    const bs = b ? `(${b.x},${b.y})` : '?';
-    parts.push(`a${d}=${as}  g${d}=${gs}  b${d}=${bs}`);
+    const a  = anchors[`a${d}`], dn = anchors[`d${d}`], b = anchors[`b${d}`];
+    const as = a  ? `(${a.x},${a.y})`   : '?';
+    const ds = dn ? `(${dn.x},${dn.y})` : '?';
+    const bs = b  ? `(${b.x},${b.y})`   : '?';
+    parts.push(`a${d}=${as}  d${d}=${ds}  b${d}=${bs}`);
   }
   infobar.textContent = parts.join('   │   ');
 }

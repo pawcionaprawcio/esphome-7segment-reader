@@ -36,14 +36,14 @@ sensor:
       # Calibrated for test_cases/size_2 (640x480 close-up, lower display row)
       # Adjust these for your specific camera position and display framing.
       - a: [105, 143]
-        g: [105, 249]
+        d: [105, 355]
         b: 140
       - a: [230, 143]
-        g: [230, 249]
+        d: [230, 355]
         b: 265
       - a: [362, 143]
-        g: [362, 249]
+        d: [362, 355]
         b: 398
       - a: [485, 143]
-        g: [485, 249]
+        d: [485, 355]
         b: 515

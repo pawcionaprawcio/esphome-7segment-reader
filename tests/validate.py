@@ -18,22 +18,24 @@ from pathlib import Path
 from PIL import Image
 
 
-def derive_segment_centers(a, g, b):
+def derive_segment_centers(a, d, b):
     ax, ay = a
-    gx, gy = g
+    dx, dy = d
     bx, by = b
-    dx = gx - ax  # down vector x
-    dy = gy - ay  # down vector y
+    gx = (ax + dx) // 2  # middle segment x = (a + d) / 2
+    gy = (ay + dy) // 2  # middle segment y = (a + d) / 2
+    dvx = gx - ax        # down vector x (g - a)
+    dvy = gy - ay        # down vector y (g - a)
     return {
-        'a':   (ax,           ay),           # anchor a
-        'b':   (bx,           by),           # anchor b
-        'c':   (bx + dx,      by + dy),      # b + down
-        'd':   (2*gx - ax,    2*gy - ay),    # 2g - a
-        'e':   (2*gx - bx,    2*gy - by),    # 2g - b
-        'f':   (ax+gx - bx,   ay+gy - by),   # a + g - b
-        'g':   (gx,           gy),           # anchor g
-        'bg0': ((ax+gx)//2,   (ay+gy)//2),   # upper interior background reference
-        'bg1': ((3*gx-ax)//2, (3*gy-ay)//2), # lower interior background reference
+        'a':   (ax,          ay),            # anchor a
+        'b':   (bx,          by),            # anchor b
+        'c':   (bx + dvx,    by + dvy),      # b + down
+        'd':   (dx,          dy),            # anchor d
+        'e':   (ax+dx - bx,  ay+dy - by),    # a + d - b
+        'f':   (ax+gx - bx,  ay+gy - by),    # a + g - b
+        'g':   (gx,          gy),            # (a + d) / 2
+        'bg0': ((ax+gx)//2,  (ay+gy)//2),    # upper interior background reference
+        'bg1': ((dx+gx)//2,  (dy+gy)//2),    # lower interior background reference
     }
 
 
@@ -111,20 +113,20 @@ def sample_brightness(pixels, width, height, cx, cy, radius=4):
 #   2. Open calibration.html, load the snapshot directory
 #   3. Place anchors:
 #      a = center of TOP HORIZONTAL segment
-#      g = center of MIDDLE HORIZONTAL segment
+#      d = center of BOTTOM HORIZONTAL segment
 #      b = center of TOP-RIGHT VERTICAL segment (the b-segment itself)
 #   4. Run:  python tests/validate.py --debug
 #   5. Adjust until all digits decode correctly
 
 DIGIT_ANCHORS = [
-    # digit 0 (leftmost)  — by = (ay+gy)//2 = (143+249)//2 = 196
-    {"a": (105, 143), "g": (105, 249), "b": (140, 196)},
+    # digit 0 (leftmost)  — by = (ay+gy)//2 = 196, gy = (143+355)//2 = 249
+    {"a": (105, 143), "d": (105, 355), "b": (140, 196)},
     # digit 1
-    {"a": (230, 143), "g": (230, 249), "b": (265, 196)},
+    {"a": (230, 143), "d": (230, 355), "b": (265, 196)},
     # digit 2
-    {"a": (362, 143), "g": (362, 249), "b": (398, 196)},
+    {"a": (362, 143), "d": (362, 355), "b": (398, 196)},
     # digit 3 (rightmost)
-    {"a": (485, 143), "g": (485, 249), "b": (515, 196)},
+    {"a": (485, 143), "d": (485, 355), "b": (515, 196)},
 ]
 SAMPLE_RADIUS = 4
 DISPLAY_OFF_THRESHOLD = 20
