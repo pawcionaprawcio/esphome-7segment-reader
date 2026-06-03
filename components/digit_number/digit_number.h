@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.0.4"
+#define DIGIT_NUMBER_VERSION "2.0.5"
 
 #include <array>
 #include <memory>
@@ -93,6 +93,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t burst_rest_start_ms_{0};
   bool     trigger_busy_{false};
   bool     pending_pause_{false};
+  uint32_t trigger_start_ms_{0};
   int      wait_ok_remaining_{0};
   bool     burst_had_ok_{false};
 

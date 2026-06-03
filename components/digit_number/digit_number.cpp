@@ -315,6 +315,7 @@ void DigitNumber::force_burst_now() {
 void DigitNumber::do_trigger_() {
   if (trigger_pin_ == nullptr) return;
   trigger_busy_ = true;
+  trigger_start_ms_ = millis();
   if (last_state_str_ == "off") {
     trigger_pin_->digital_write(true);
     set_timeout("trig_w1", 300, [this]() {
@@ -323,7 +324,7 @@ void DigitNumber::do_trigger_() {
         trigger_pin_->digital_write(true);
         set_timeout("trig_m_cold", 300, [this]() {
           trigger_pin_->digital_write(false);
-          wait_ok_remaining_ = 30;
+          wait_ok_remaining_ = 75;
           wait_for_ok_();
         });
       });
@@ -348,8 +349,8 @@ void DigitNumber::trigger_done_() {
 }
 
 void DigitNumber::wait_for_ok_() {
-  if (last_state_str_ == "ok") {
-    ESP_LOGD(TAG, "Trigger: got ok");
+  if (last_state_str_ == "ok" && last_valid_ms_ > trigger_start_ms_) {
+    ESP_LOGD(TAG, "Trigger: got ok (fresh read after trigger)");
     trigger_done_();
     return;
   }
