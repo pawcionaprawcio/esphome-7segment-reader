@@ -193,6 +193,7 @@ sensor:
 | `multiplier` | float | `1.0` | Scale factor applied after decimal shift: `value = raw / 10^decimal_digits * multiplier + offset` |
 | `offset` | float | `0.0` | Offset added after multiplier |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
+| `inverted` | bool | `false` | Set `true` for displays with dark segments on bright background. Flips brightness values before thresholding. |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
 | `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Only has effect when `trigger_pin` is configured. |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |

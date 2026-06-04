@@ -150,6 +150,7 @@ void DigitNumber::process_image_() {
   std::vector<std::array<uint8_t, 7>> brightness(num_digits);
   std::vector<uint8_t> black_ref(num_digits);
   uint8_t global_max = 0;
+  uint8_t global_min = 255;
 
   for (int d = 0; d < num_digits; d++) {
     for (int s = 0; s < 7; s++) {
@@ -158,6 +159,8 @@ void DigitNumber::process_image_() {
                                             geometries_[d].seg[s].y);
       if (brightness[d][s] > global_max)
         global_max = brightness[d][s];
+      if (brightness[d][s] < global_min)
+        global_min = brightness[d][s];
     }
     const uint8_t bg0 = sample_brightness_(buf, fw, fh, fmt,
                                            geometries_[d].bg[0].x, geometries_[d].bg[0].y);
@@ -167,6 +170,16 @@ void DigitNumber::process_image_() {
   }
 
   esp_camera_fb_return(fb);
+
+  if (inverted_) {
+    for (int d = 0; d < num_digits; d++) {
+      for (int s = 0; s < 7; s++)
+        brightness[d][s] = 255 - brightness[d][s];
+      black_ref[d] = 255 - black_ref[d];
+    }
+    global_max = 255 - global_min;
+    ESP_LOGD(TAG, "Inverted mode: effective global_max=%d", global_max);
+  }
 
   if (global_max < display_off_threshold_) {
     ESP_LOGW(TAG, "Display off (max brightness %d < %d)", global_max, display_off_threshold_);

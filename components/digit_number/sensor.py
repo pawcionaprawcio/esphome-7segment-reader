@@ -30,6 +30,7 @@ CONF_DECIMAL_DIGITS = "decimal_digits"
 CONF_MULTIPLIER = "multiplier"
 CONF_OFFSET = "offset"
 CONF_MAX_VALUE = "max_value"
+CONF_INVERTED = "inverted"
 
 BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_BURST_COUNT, default=3): cv.positive_int,
@@ -89,6 +90,7 @@ CONFIG_SCHEMA = cv.All(
         cv.Optional(CONF_MULTIPLIER, default=1.0): cv.float_,
         cv.Optional(CONF_OFFSET, default=0.0): cv.float_,
         cv.Optional(CONF_MAX_VALUE): cv.positive_int,
+        cv.Optional(CONF_INVERTED, default=False): cv.boolean,
     }),
     _validate_burst_requires_trigger,
 )
@@ -147,3 +149,5 @@ async def to_code(config):
 
     if CONF_MAX_VALUE in config:
         cg.add(var.set_max_value(config[CONF_MAX_VALUE]))
+
+    cg.add(var.set_inverted(config[CONF_INVERTED]))
