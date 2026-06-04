@@ -230,6 +230,10 @@ sensor:
 | `ok` | Valid reading published |
 | `fail` | Unrecognised segment pattern or value exceeded `max_value` |
 
+## Best conditions
+
+Works best when the display and camera background are evenly lit with no external reflections — uniform brightness and contrast across the frame. This stabilises auto-thresholding and minimises segment decode errors.
+
 ## Troubleshooting
 
 **All digits decode as `?`**  
