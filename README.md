@@ -98,7 +98,7 @@ snapshot pixel coords:
 `d.x` and `a.x` should both be at the **horizontal center** of the digit.  
 `b` is a full `[x, y]` coordinate — place it at the center of the top-right vertical bar.
 
-### Calibration GUI (`calibration.html`)
+### Calibration GUI ([`calibration.html`](calibration.html))
 
 The repository includes a browser-based calibration tool — open `calibration.html` directly in any browser (no server needed).
 
