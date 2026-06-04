@@ -251,11 +251,22 @@ Works best when the display and camera background are evenly lit with no externa
 
 ## Development
 
+### Python tests
+
 ```bash
 pip install -r requirements-test.txt
 pytest tests/test_geometry.py tests/test_decode.py -v
 python tests/validate.py --debug
 ```
+
+### C++ unit tests
+
+```bash
+cd tests/cpp
+make
+```
+
+Tests `decode_digit`, `derive_geometry`, `sample_brightness` from `digit_logic.h`. Requires `g++` with C++17 support — no ESP32 toolchain needed.
 
 ## License
 

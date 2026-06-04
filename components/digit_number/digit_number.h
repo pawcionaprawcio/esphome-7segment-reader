@@ -1,7 +1,8 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.2.2"
+#define DIGIT_NUMBER_VERSION "2.2.3"
 
+#include "digit_logic.h"
 #include <array>
 #include <memory>
 #include <vector>
@@ -15,23 +16,6 @@
 
 namespace esphome {
 namespace digit_number {
-
-enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1 };
-
-struct DigitAnchors {
-  uint16_t ax, ay;  // top horizontal segment center (a)
-  uint16_t dx, dy;  // bottom horizontal segment center (d)
-  uint16_t bx, by;  // top-right vertical segment center (b)
-};
-
-struct SegmentCenter {
-  uint16_t x, y;
-};
-
-struct DigitGeometry {
-  SegmentCenter seg[7];  // order: a,b,c,d,e,f,g (index = bit position in bitmask)
-  SegmentCenter bg[2];   // background reference: [0]=upper interior, [1]=lower interior
-};
 
 class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
  public:
@@ -68,10 +52,6 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void on_camera_image(const std::shared_ptr<camera::CameraImage> &image) override;
 
  protected:
-  DigitGeometry derive_geometry_(const DigitAnchors &a) const;
-  uint8_t sample_brightness_(const uint8_t *buf, uint16_t fw, uint16_t fh, PixFmt fmt,
-                             uint16_t cx, uint16_t cy) const;
-  int8_t decode_digit_(uint8_t bitmask) const;
   void process_image_();
   void publish_all_(const char *state);
   void burst_tick_();
@@ -125,9 +105,6 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t last_valid_ms_{0};
   float prev_burst_value_{NAN};
   uint32_t burst_current_rest_ms_{0};
-
-  static const uint8_t SEGMENT_PATTERNS_[10];
-  static const uint8_t DASH_BITMASK_ = 0b1000000;  // segment g only
 };
 
 template<typename... Ts>
