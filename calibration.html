@@ -61,6 +61,30 @@ canvas {
   position: fixed; bottom: 6px; right: 10px;
   font-size: 10px; color: #585b70;
 }
+#yaml-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.6); z-index: 100;
+  align-items: center; justify-content: center;
+}
+#yaml-modal.open { display: flex; }
+#yaml-box {
+  background: #1e1e2e; border: 1px solid #585b70;
+  border-radius: 6px; padding: 16px; min-width: 420px;
+}
+#yaml-box h3 { color: #cba6f7; margin-bottom: 10px; font-size: 13px; }
+#yaml-pre {
+  background: #11111b; color: #a6e3a1; font-family: monospace;
+  font-size: 12px; padding: 10px; border-radius: 4px;
+  white-space: pre; user-select: all; margin-bottom: 10px;
+}
+#yaml-actions { display: flex; gap: 8px; justify-content: flex-end; }
+#yaml-actions button {
+  background: #45475a; color: #cdd6f4; border: none;
+  padding: 5px 14px; cursor: pointer; border-radius: 4px;
+  font-family: monospace; font-size: 12px;
+}
+#yaml-actions button:hover { background: #585b70; }
+#btn-copy-yaml { background: #313244 !important; color: #a6e3a1 !important; }
 </style>
 </head>
 <body>
@@ -77,7 +101,21 @@ canvas {
   <button id="btn-next">Next →</button>
 </div>
 
-<div id="infobar">—</div>
+<div id="yaml-modal">
+  <div id="yaml-box">
+    <h3>digits YAML</h3>
+    <div id="yaml-pre"></div>
+    <div id="yaml-actions">
+      <button id="btn-copy-yaml">Copy</button>
+      <button id="btn-close-yaml">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="infobar" style="display:flex;align-items:center;gap:8px">
+  <button id="btn-yaml" style="background:#313244;color:#cba6f7;border:none;padding:2px 10px;cursor:pointer;border-radius:3px;font-family:monospace;font-size:11px;flex-shrink:0">YAML</button>
+  <span id="infobar-text">—</span>
+</div>
 
 <div id="main">
   <div id="panel"></div>
@@ -121,7 +159,7 @@ function deriveSegments(ax, ay, dx, dy, bx, by) {
 // ── DOM refs ───────────────────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
-const infobar = document.getElementById('infobar');
+const infobar = document.getElementById('infobar-text');
 
 // ── panel build ────────────────────────────────────────────────────────
 const btnEls = {}, valEls = {};
@@ -381,6 +419,51 @@ function updatePanel() {
     }
   }
 }
+
+// ── YAML export ────────────────────────────────────────────────────────
+function generateYAML() {
+  const lines = ['digits:'];
+  for (let d = 1; d <= 4; d++) {
+    const a  = anchors[`a${d}`];
+    const dn = anchors[`d${d}`];
+    const b  = anchors[`b${d}`];
+    const as = a  ? `[${a.x}, ${a.y}]`   : '[?, ?]';
+    const ds = dn ? `[${dn.x}, ${dn.y}]` : '[?, ?]';
+    const bs = b  ? `[${b.x}, ${b.y}]`   : '[?, ?]';
+    lines.push(`  - a: ${as}`);
+    lines.push(`    d: ${ds}`);
+    lines.push(`    b: ${bs}`);
+  }
+  return lines.join('\n');
+}
+
+const yamlModal = document.getElementById('yaml-modal');
+const yamlPre   = document.getElementById('yaml-pre');
+
+document.getElementById('btn-yaml').addEventListener('click', () => {
+  yamlPre.textContent = generateYAML();
+  yamlModal.classList.add('open');
+});
+
+document.getElementById('btn-close-yaml').addEventListener('click', () => {
+  yamlModal.classList.remove('open');
+});
+
+yamlModal.addEventListener('click', e => {
+  if (e.target === yamlModal) yamlModal.classList.remove('open');
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') yamlModal.classList.remove('open');
+});
+
+document.getElementById('btn-copy-yaml').addEventListener('click', () => {
+  navigator.clipboard.writeText(yamlPre.textContent).then(() => {
+    const btn = document.getElementById('btn-copy-yaml');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
+});
 
 // ── init ───────────────────────────────────────────────────────────────
 updateInfoBar();

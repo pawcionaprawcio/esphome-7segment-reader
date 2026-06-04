@@ -19,6 +19,7 @@ Threshold strategy: per-digit max-gap (largest brightness gap among 7 values).
 All 18 digit images and kreski.jpg decode reliably with this approach.
 """
 
+import yaml
 import pytest
 from pathlib import Path
 from PIL import Image
@@ -27,15 +28,26 @@ from tests.validate import derive_segment_centers, decode_digit
 
 IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_1"
 
-# Calibrated for test_cases/size_4 (800x600, lower display row).
-# Digits shifted down vs size_3 — camera position/zoom changed.
-# a1=(128,188) d1=(110,437) b1=(169,253) │ a2=(282,192) d2=(271,443) b2=(324,259) │
-# a3=(444,197) d3=(423,445) b3=(482,258) │ a4=(603,201) d4=(586,450) b4=(642,263)
+# Paste output from calibration.html YAML button:
+_ANCHORS_YAML = """\
+digits:
+  - a: [128, 188]
+    d: [110, 437]
+    b: [169, 253]
+  - a: [282, 192]
+    d: [271, 443]
+    b: [324, 259]
+  - a: [444, 197]
+    d: [423, 445]
+    b: [482, 258]
+  - a: [603, 201]
+    d: [586, 450]
+    b: [642, 263]
+"""
+
 DIGIT_ANCHORS = [
-    {"a": (128,188), "d": (110,437), "b": (169,253)},
-    {"a": (282,192), "d": (271,443), "b": (324,259)},
-    {"a": (444,197), "d": (423,445), "b": (482,258)},
-    {"a": (603,201), "d": (586,450), "b": (642,263)},
+    {"a": tuple(d["a"]), "d": tuple(d["d"]), "b": tuple(d["b"])}
+    for d in yaml.safe_load(_ANCHORS_YAML)["digits"]
 ]
 SAMPLE_RADIUS = 5
 DISPLAY_OFF_THRESHOLD = 60

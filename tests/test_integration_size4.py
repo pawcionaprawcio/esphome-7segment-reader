@@ -19,6 +19,7 @@ Threshold strategy: per-digit max-gap (largest brightness gap among 7 values).
 All 18 digit images and kreski.jpg decode reliably with this approach.
 """
 
+import yaml
 import pytest
 from pathlib import Path
 from PIL import Image
@@ -27,13 +28,26 @@ from tests.validate import derive_segment_centers, decode_digit
 
 IMG_DIR = Path(__file__).parent.parent / "test_cases" / "size_4"
 
-# Calibrated for test_cases/size_4 (800x600, lower display row).
-# Digits shifted down vs size_3 — camera position/zoom changed.
+# Paste output from calibration.html YAML button:
+_ANCHORS_YAML = """\
+digits:
+  - a: [144, 265]
+    d: [144, 531]
+    b: [190, 331]
+  - a: [296, 265]
+    d: [296, 531]
+    b: [335, 331]
+  - a: [447, 265]
+    d: [447, 531]
+    b: [490, 331]
+  - a: [617, 265]
+    d: [617, 531]
+    b: [663, 331]
+"""
+
 DIGIT_ANCHORS = [
-    {"a": (144, 265), "d": (144, 531), "b": (190, 331)},  # by = (265+398)//2, gy=(265+531)//2=398
-    {"a": (296, 265), "d": (296, 531), "b": (335, 331)},
-    {"a": (447, 265), "d": (447, 531), "b": (490, 331)},
-    {"a": (617, 265), "d": (617, 531), "b": (663, 331)},
+    {"a": tuple(d["a"]), "d": tuple(d["d"]), "b": tuple(d["b"])}
+    for d in yaml.safe_load(_ANCHORS_YAML)["digits"]
 ]
 SAMPLE_RADIUS = 5
 DISPLAY_OFF_THRESHOLD = 60
