@@ -184,7 +184,7 @@ sensor:
 | `digits[].d` | [x, y] | required | Bottom horizontal segment center pixel |
 | `digits[].b` | [x, y] | required | Top-right vertical segment center pixel |
 | `sample_radius` | int | 2 | Radius of averaging patch in pixels |
-| `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(min+max)/2` per frame |
+| `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(black_ref + max) / 2` per digit (`black_ref` = background sample from digit interior) |
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
 | `unit_of_measurement` | string | `mm` | Sensor unit published to Home Assistant (e.g. `mm`, `cm`, `kg`, `°C`) |
@@ -194,10 +194,10 @@ sensor:
 | `offset` | float | `0.0` | Offset added after multiplier |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
-| `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Set `false` to disable. |
+| `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Only has effect when `trigger_pin` is configured. |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
 | `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
-| `burst_mode.trigger_interval` | duration | `10s` | Interval between pulses within a burst |
+| `burst_mode.trigger_interval` | duration | `10s` | Interval between trigger events within a burst |
 | `burst_mode.rest_duration` | duration | `5min` | Pause between bursts |
 | `burst_mode.trigger_pulse` | duration | `300ms` | Duration of each HIGH pulse sent to `trigger_pin` |
 | `burst_mode.trigger_cold_wait` | duration | `2s` | Pause between the two pulses on cold start (display `off`) |
