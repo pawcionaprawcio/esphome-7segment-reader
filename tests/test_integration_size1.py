@@ -131,7 +131,7 @@ def decode_image(path):
             return None
         digits.append(digit)
 
-    return digits[0] * 1000 + digits[1] * 100 + digits[2] * 10 + digits[3]
+    return sum(d * (10 ** (len(digits) - 1 - i)) for i, d in enumerate(digits))
 
 
 # ── Ready state ──────────────────────────────────────────────────────────────

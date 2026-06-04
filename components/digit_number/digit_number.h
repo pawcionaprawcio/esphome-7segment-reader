@@ -70,7 +70,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   esp32_camera::ESP32Camera *camera_{nullptr};
   text_sensor::TextSensor *last_state_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
-  std::array<DigitGeometry, 4> geometries_{};
+  std::vector<DigitGeometry> geometries_;
   uint8_t sample_radius_{2};
   int threshold_{-1};
   uint8_t display_off_threshold_{10};

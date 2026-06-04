@@ -88,7 +88,7 @@ def determine_state(all_bright, digit_segments, bg_refs=None, display_off_thresh
         return "ready", None
     digits = [decode_digit(b) for b in bitmasks]
     if all(d is not None for d in digits):
-        value = digits[0] * 1000 + digits[1] * 100 + digits[2] * 10 + digits[3]
+        value = sum(d * (10 ** (len(digits) - 1 - i)) for i, d in enumerate(digits))
         return "ok", value
     return "fail", None
 
@@ -175,7 +175,7 @@ def process_image(path, debug=False):
             return None
         digits.append(digit)
 
-    value = digits[0] * 1000 + digits[1] * 100 + digits[2] * 10 + digits[3]
+    value = sum(d * (10 ** (len(digits) - 1 - i)) for i, d in enumerate(digits))
     return value
 
 

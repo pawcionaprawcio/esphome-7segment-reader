@@ -55,7 +55,7 @@ CONFIG_SCHEMA = cv.All(
         cv.Required(CONF_CAMERA_ID): cv.use_id(esp32_camera.ESP32Camera),
         cv.Required(CONF_DIGITS): cv.All(
             cv.ensure_list(DIGIT_SCHEMA),
-            cv.Length(min=4, max=4, msg="Exactly 4 digits required"),
+            cv.Length(min=1),
         ),
         cv.Optional(CONF_SAMPLE_RADIUS, default=2): cv.uint8_t,
         cv.Optional(CONF_THRESHOLD, default="auto"): cv.Any(

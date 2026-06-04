@@ -91,8 +91,9 @@ int8_t DigitNumber::decode_digit_(uint8_t bitmask) const {
 void DigitNumber::setup() {
   ESP_LOGI(TAG, "digit_number v%s", DIGIT_NUMBER_VERSION);
   last_valid_ms_ = millis();
-  for (int d = 0; d < (int)digits_.size() && d < 4; d++)
-    geometries_[d] = derive_geometry_(digits_[d]);
+  geometries_.reserve(digits_.size());
+  for (const auto &da : digits_)
+    geometries_.push_back(derive_geometry_(da));
   static_cast<camera::Camera *>(camera_)->add_listener(this);
   if (trigger_pin_ != nullptr) {
     trigger_pin_->setup();
@@ -146,8 +147,8 @@ void DigitNumber::process_image_() {
   const uint16_t fw  = (uint16_t)fb->width;
   const uint16_t fh  = (uint16_t)fb->height;
 
-  std::array<std::array<uint8_t, 7>, 4> brightness{};
-  std::array<uint8_t, 4> black_ref{};
+  std::vector<std::array<uint8_t, 7>> brightness(num_digits);
+  std::vector<uint8_t> black_ref(num_digits);
   uint8_t global_max = 0;
 
   for (int d = 0; d < num_digits; d++) {
@@ -173,7 +174,7 @@ void DigitNumber::process_image_() {
     return;
   }
 
-  std::array<uint8_t, 4> bitmasks{};
+  std::vector<uint8_t> bitmasks(num_digits);
   for (int d = 0; d < num_digits; d++) {
     uint8_t thresh;
     if (threshold_ >= 0) {
@@ -219,7 +220,6 @@ void DigitNumber::process_image_() {
   }
 
   int32_t value = 0;
-  const int32_t multipliers[4] = {1000, 100, 10, 1};
 
   for (int d = 0; d < num_digits; d++) {
     const int8_t digit = decode_digit_(bitmasks[d]);
@@ -228,7 +228,9 @@ void DigitNumber::process_image_() {
       publish_all_("fail");
       return;
     }
-    value += digit * multipliers[d];
+    int32_t multiplier = 1;
+    for (int k = d + 1; k < num_digits; k++) multiplier *= 10;
+    value += digit * multiplier;
   }
 
   if (max_value_ >= 0 && value > max_value_) {
