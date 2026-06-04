@@ -4,6 +4,8 @@ ESPHome external component that reads a multi-digit 7-segment display via ESP32-
 
 Designed for close-up camera mounting where the display fills most of the frame. Works with heavily blurred images — uses area brightness averaging and per-frame auto-thresholding.
 
+![ESP32-CAM capture of 7-segment display](docs/imgs/capture.jpeg)
+
 ## How it works
 
 1. Camera captures a frame (grayscale or RGB565)
@@ -101,6 +103,8 @@ snapshot pixel coords:
 ### Calibration GUI ([`calibration.html`](calibration.html))
 
 The repository includes a browser-based calibration tool — open `calibration.html` directly in any browser (no server needed).
+
+![Calibration GUI](docs/imgs/Calibration_GUI.jpg)
 
 **Workflow:**
 
