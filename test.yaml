@@ -1,7 +1,14 @@
 esphome:
   name: digit-test
-  platform: ESP32
-  board: esp32cam
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_COMPILER_CXX_RTTI: "y"
+      CONFIG_SPIRAM: "y"
+      CONFIG_SPIRAM_USE_MALLOC: "y"
 
 external_components:
   - source:
@@ -9,41 +16,75 @@ external_components:
       path: .
     components: [digit_number]
 
+logger:
+
+wifi:
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "digit-test Fallback"
+    password: "changeme123"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+psram:
+
+i2c:
+  sda: GPIO26
+  scl: GPIO27
+  id: camera_i2c
+
 esp32_camera:
   id: my_camera
   external_clock:
     pin: GPIO0
-    frequency: 20MHz
-  i2c_pins:
-    sda: GPIO26
-    scl: GPIO27
+    frequency: 10MHz
+  i2c_id: camera_i2c
   data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
   vsync_pin: GPIO25
   href_pin: GPIO23
   pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+  resolution: 800X600
   pixel_format: GRAYSCALE
-  resolution: SVGA
+  vertical_flip: False
+  horizontal_mirror: False
+  brightness: 2
+  jpeg_quality: 10
+  frame_buffer_count: 2
+
+# Snapshot: http://<ip>:8080
+esp32_camera_web_server:
+  - port: 8080
+    mode: snapshot
 
 sensor:
   - platform: digit_number
     name: "Distance"
     camera_id: my_camera
     update_interval: 2s
-    sample_radius: 4
+    sample_radius: 5
     threshold: auto
-    display_off_threshold: 20
+    display_off_threshold: 60
     digits:
-      # Calibrated for test_cases/size_2 (640x480 close-up, lower display row)
-      # Adjust these for your specific camera position and display framing.
+      # Calibrated for test_cases/size_2 (640x480).
+      # Use calibration.html to find your own coordinates:
+      #   1. Save snapshots from http://<ip>:8080 into a folder
+      #   2. Open calibration.html, load the folder
+      #   3. Place anchors, click YAML → Copy, paste here
       - a: [105, 143]
         d: [105, 355]
-        b: 140
+        b: [140, 196]
       - a: [230, 143]
         d: [230, 355]
-        b: 265
+        b: [265, 196]
       - a: [362, 143]
         d: [362, 355]
-        b: 398
+        b: [398, 196]
       - a: [485, 143]
         d: [485, 355]
-        b: 515
+        b: [515, 196]

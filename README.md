@@ -34,6 +34,8 @@ external_components:
     refresh: always
 ```
 
+A minimal working config for ESP32-CAM is available in [`test.yaml`](test.yaml).
+
 ## Segment layout
 
 Each 7-segment digit has this standard layout:
