@@ -1,6 +1,6 @@
 # digit_number
 
-ESPHome external component that reads a 4-digit 7-segment display via ESP32-CAM and publishes the value as a millimeter integer sensor.
+ESPHome external component that reads a multi-digit 7-segment display via ESP32-CAM and publishes the value as a millimeter integer sensor. The number of digits is defined by the length of the `digits:` list in config — no fixed limit.
 
 Designed for close-up camera mounting where the display fills most of the frame. Works with heavily blurred images — uses area brightness averaging and per-frame auto-thresholding.
 
@@ -8,10 +8,10 @@ Designed for close-up camera mounting where the display fills most of the frame.
 
 1. Camera captures a frame (grayscale or RGB565)
 2. For each digit, 7 segment brightness values are sampled from defined anchor positions
-3. Auto-threshold = `(min + max) / 2` across all 28 samples
+3. Auto-threshold = `(black_ref + max) / 2` per digit (background reference from interior pixels)
 4. Each segment is classified ON/OFF → 7-bit bitmask
 5. Bitmask is looked up in the standard 7-segment truth table → digit 0–9
-6. Value = `d[0]*1000 + d[1]*100 + d[2]*10 + d[3]` → published as sensor in mm
+6. Value = `Σ d[i] × 10^(N–1–i)` → published as sensor in mm
 
 **Display off** (all samples below `display_off_threshold`): publishes `NaN`.  
 **Unknown bitmask** (unrecognised segment pattern): publishes `NaN`.
@@ -72,7 +72,7 @@ For each digit, provide **3 pixel coordinates** from a camera snapshot:
 |--------|----------------|
 | `a`    | Center pixel of the **top horizontal** segment `[x, y]` |
 | `d`    | Center pixel of the **bottom horizontal** segment `[x, y]` |
-| `b`    | X coordinate of the **top-right vertical** segment (integer) |
+| `b`    | Center pixel of the **top-right vertical** segment `[x, y]` |
 
 ```
 snapshot pixel coords:
@@ -94,9 +94,24 @@ snapshot pixel coords:
 ```
 
 `d.x` and `a.x` should both be at the **horizontal center** of the digit.  
-`b` is just an integer (x coordinate) — the component only uses the x value to derive left/right positions.
+`b` is a full `[x, y]` coordinate — place it at the center of the top-right vertical bar.
 
-### Calibration steps
+### Calibration GUI (`calibration.html`)
+
+The repository includes a browser-based calibration tool — open `calibration.html` directly in any browser (no server needed).
+
+**Workflow:**
+
+1. Save several snapshots from `http://<device-ip>:8080` into one folder.
+2. Click **Choose Folder** and select that folder.
+3. Click anchor buttons (`a1`, `d1`, `b1`, …) and place them on the image by clicking the corresponding segment centers. Use `+` to add more digits.
+4. Navigate through all saved images with **← Prev / Next →** (or arrow keys) — verify that the derived segment markers (blue crosshairs) land correctly on segments across different frames.
+5. Adjust anchors until all frames look correct.
+6. Click **YAML** → **Copy** and paste the result directly into `config.yaml`.
+
+You can also paste an existing `digits:` block from `config.yaml` into the **Import** textarea in the YAML dialog to load previously saved coordinates back into the GUI.
+
+### Manual calibration steps
 
 1. Enable camera web server in ESPHome:
    ```yaml
@@ -143,16 +158,16 @@ sensor:
     digits:
       - a: [195, 175]         # top horizontal center [x, y]
         d: [195, 265]         # bottom horizontal center [x, y]
-        b: 250                # top-right vertical x coordinate
+        b: [250, 200]         # top-right vertical center [x, y]
       - a: [285, 175]
         d: [285, 265]
-        b: 340
+        b: [340, 200]
       - a: [375, 175]
         d: [375, 265]
-        b: 430
+        b: [430, 200]
       - a: [460, 175]
         d: [460, 265]
-        b: 515
+        b: [515, 200]
 ```
 
 ### Configuration reference
@@ -160,10 +175,10 @@ sensor:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `camera_id` | id | required | Reference to `esp32_camera` component |
-| `digits` | list[4] | required | Exactly 4 digit definitions |
+| `digits` | list | required | 1 or more digit definitions (count determines sensor range) |
 | `digits[].a` | [x, y] | required | Top horizontal segment center pixel |
 | `digits[].d` | [x, y] | required | Bottom horizontal segment center pixel |
-| `digits[].b` | int | required | X coordinate of top-right vertical segment |
+| `digits[].b` | [x, y] | required | Top-right vertical segment center pixel |
 | `sample_radius` | int | 2 | Radius of averaging patch in pixels |
 | `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(min+max)/2` per frame |
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
