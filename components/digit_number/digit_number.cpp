@@ -318,22 +318,22 @@ void DigitNumber::do_trigger_() {
   trigger_start_ms_ = millis();
   if (last_state_str_ == "off") {
     trigger_pin_->digital_write(true);
-    set_timeout("trig_w1", 300, [this]() {
+    set_timeout("trig_w1", trigger_pulse_ms_, [this]() {
       trigger_pin_->digital_write(false);
-      set_timeout("trig_w2", 2000, [this]() {
+      set_timeout("trig_w2", trigger_cold_wait_ms_, [this]() {
         trigger_pin_->digital_write(true);
-        set_timeout("trig_m_cold", 300, [this]() {
+        set_timeout("trig_m_cold", trigger_pulse_ms_, [this]() {
           trigger_pin_->digital_write(false);
-          wait_ok_remaining_ = 75;
+          wait_ok_remaining_ = (int)(trigger_timeout_cold_ms_ / 200);
           wait_for_ok_();
         });
       });
     });
   } else {
     trigger_pin_->digital_write(true);
-    set_timeout("trig_m", 300, [this]() {
+    set_timeout("trig_m", trigger_pulse_ms_, [this]() {
       trigger_pin_->digital_write(false);
-      wait_ok_remaining_ = 30;
+      wait_ok_remaining_ = (int)(trigger_timeout_warm_ms_ / 200);
       wait_for_ok_();
     });
   }

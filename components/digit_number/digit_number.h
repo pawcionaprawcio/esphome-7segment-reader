@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.1.1"
+#define DIGIT_NUMBER_VERSION "2.1.2"
 
 #include <array>
 #include <memory>
@@ -47,6 +47,10 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_burst_count(uint8_t count) { burst_count_ = count; }
   void set_burst_trigger_interval(uint32_t ms) { burst_trigger_interval_ms_ = ms; }
   void set_burst_rest_duration(uint32_t ms) { burst_rest_duration_ms_ = ms; }
+  void set_trigger_pulse_ms(uint32_t ms) { trigger_pulse_ms_ = ms; }
+  void set_trigger_cold_wait_ms(uint32_t ms) { trigger_cold_wait_ms_ = ms; }
+  void set_trigger_timeout_warm_ms(uint32_t ms) { trigger_timeout_warm_ms_ = ms; }
+  void set_trigger_timeout_cold_ms(uint32_t ms) { trigger_timeout_cold_ms_ = ms; }
   void set_max_value(int32_t v) { max_value_ = v; }
   void do_trigger_();
   void force_burst_now();
@@ -84,6 +88,10 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint8_t  burst_count_{3};
   uint32_t burst_trigger_interval_ms_{10000};
   uint32_t burst_rest_duration_ms_{300000};
+  uint32_t trigger_pulse_ms_{300};
+  uint32_t trigger_cold_wait_ms_{2000};
+  uint32_t trigger_timeout_warm_ms_{6000};
+  uint32_t trigger_timeout_cold_ms_{15000};
 
   // burst runtime state
   uint8_t  burst_read_count_{0};

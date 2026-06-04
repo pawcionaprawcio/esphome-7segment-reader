@@ -19,12 +19,20 @@ CONF_BURST_MODE = "burst_mode"
 CONF_BURST_COUNT = "count"
 CONF_BURST_TRIGGER_INTERVAL = "trigger_interval"
 CONF_BURST_REST_DURATION = "rest_duration"
+CONF_TRIGGER_PULSE = "trigger_pulse"
+CONF_TRIGGER_COLD_WAIT = "trigger_cold_wait"
+CONF_TRIGGER_TIMEOUT_WARM = "trigger_timeout_warm"
+CONF_TRIGGER_TIMEOUT_COLD = "trigger_timeout_cold"
 CONF_MAX_VALUE = "max_value"
 
 BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_BURST_COUNT, default=3): cv.positive_int,
     cv.Optional(CONF_BURST_TRIGGER_INTERVAL, default="10s"): cv.positive_time_period_milliseconds,
     cv.Optional(CONF_BURST_REST_DURATION, default="5min"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_TRIGGER_PULSE, default="300ms"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_TRIGGER_COLD_WAIT, default="2s"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_TRIGGER_TIMEOUT_WARM, default="6s"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_TRIGGER_TIMEOUT_COLD, default="15s"): cv.positive_time_period_milliseconds,
 })
 
 
@@ -113,6 +121,10 @@ async def to_code(config):
         cg.add(var.set_burst_count(bm[CONF_BURST_COUNT]))
         cg.add(var.set_burst_trigger_interval(bm[CONF_BURST_TRIGGER_INTERVAL]))
         cg.add(var.set_burst_rest_duration(bm[CONF_BURST_REST_DURATION]))
+        cg.add(var.set_trigger_pulse_ms(bm[CONF_TRIGGER_PULSE]))
+        cg.add(var.set_trigger_cold_wait_ms(bm[CONF_TRIGGER_COLD_WAIT]))
+        cg.add(var.set_trigger_timeout_warm_ms(bm[CONF_TRIGGER_TIMEOUT_WARM]))
+        cg.add(var.set_trigger_timeout_cold_ms(bm[CONF_TRIGGER_TIMEOUT_COLD]))
 
     if CONF_MAX_VALUE in config:
         cg.add(var.set_max_value(config[CONF_MAX_VALUE]))

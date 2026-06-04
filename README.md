@@ -195,6 +195,10 @@ sensor:
 | `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
 | `burst_mode.trigger_interval` | duration | `10s` | Interval between pulses within a burst |
 | `burst_mode.rest_duration` | duration | `5min` | Pause between bursts |
+| `burst_mode.trigger_pulse` | duration | `300ms` | Duration of each HIGH pulse sent to `trigger_pin` |
+| `burst_mode.trigger_cold_wait` | duration | `2s` | Pause between the two pulses on cold start (display `off`) |
+| `burst_mode.trigger_timeout_warm` | duration | `6s` | Max wait for valid reading after warm-start trigger |
+| `burst_mode.trigger_timeout_cold` | duration | `15s` | Max wait for valid reading after cold-start trigger |
 
 ### Pixel format
 
