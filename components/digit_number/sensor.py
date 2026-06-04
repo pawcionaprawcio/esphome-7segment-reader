@@ -23,6 +23,8 @@ CONF_TRIGGER_PULSE = "trigger_pulse"
 CONF_TRIGGER_COLD_WAIT = "trigger_cold_wait"
 CONF_TRIGGER_TIMEOUT_WARM = "trigger_timeout_warm"
 CONF_TRIGGER_TIMEOUT_COLD = "trigger_timeout_cold"
+CONF_DELTA_THRESHOLD = "delta_threshold"
+CONF_DELTA_REST_DURATION = "delta_rest_duration"
 CONF_MAX_VALUE = "max_value"
 
 BURST_MODE_SCHEMA = cv.Schema({
@@ -33,6 +35,8 @@ BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_TRIGGER_COLD_WAIT, default="2s"): cv.positive_time_period_milliseconds,
     cv.Optional(CONF_TRIGGER_TIMEOUT_WARM, default="6s"): cv.positive_time_period_milliseconds,
     cv.Optional(CONF_TRIGGER_TIMEOUT_COLD, default="15s"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_DELTA_THRESHOLD, default=5.0): cv.float_,
+    cv.Optional(CONF_DELTA_REST_DURATION, default="60s"): cv.positive_time_period_milliseconds,
 })
 
 
@@ -125,6 +129,8 @@ async def to_code(config):
         cg.add(var.set_trigger_cold_wait_ms(bm[CONF_TRIGGER_COLD_WAIT]))
         cg.add(var.set_trigger_timeout_warm_ms(bm[CONF_TRIGGER_TIMEOUT_WARM]))
         cg.add(var.set_trigger_timeout_cold_ms(bm[CONF_TRIGGER_TIMEOUT_COLD]))
+        cg.add(var.set_delta_threshold(bm[CONF_DELTA_THRESHOLD]))
+        cg.add(var.set_delta_rest_duration_ms(bm[CONF_DELTA_REST_DURATION]))
 
     if CONF_MAX_VALUE in config:
         cg.add(var.set_max_value(config[CONF_MAX_VALUE]))

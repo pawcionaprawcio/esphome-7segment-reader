@@ -199,6 +199,8 @@ sensor:
 | `burst_mode.trigger_cold_wait` | duration | `2s` | Pause between the two pulses on cold start (display `off`) |
 | `burst_mode.trigger_timeout_warm` | duration | `6s` | Max wait for valid reading after warm-start trigger |
 | `burst_mode.trigger_timeout_cold` | duration | `15s` | Max wait for valid reading after cold-start trigger |
+| `burst_mode.delta_threshold` | float | `5.0` | Value change considered significant (in sensor units); triggers shortened rest |
+| `burst_mode.delta_rest_duration` | duration | `60s` | Shortened rest duration when delta ≥ `delta_threshold` |
 
 ### Pixel format
 

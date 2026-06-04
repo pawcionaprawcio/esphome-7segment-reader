@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.1.2"
+#define DIGIT_NUMBER_VERSION "2.1.3"
 
 #include <array>
 #include <memory>
@@ -51,6 +51,8 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_trigger_cold_wait_ms(uint32_t ms) { trigger_cold_wait_ms_ = ms; }
   void set_trigger_timeout_warm_ms(uint32_t ms) { trigger_timeout_warm_ms_ = ms; }
   void set_trigger_timeout_cold_ms(uint32_t ms) { trigger_timeout_cold_ms_ = ms; }
+  void set_delta_threshold(float v) { delta_threshold_ = v; }
+  void set_delta_rest_duration_ms(uint32_t ms) { delta_rest_duration_ms_ = ms; }
   void set_max_value(int32_t v) { max_value_ = v; }
   void do_trigger_();
   void force_burst_now();
@@ -92,6 +94,8 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t trigger_cold_wait_ms_{2000};
   uint32_t trigger_timeout_warm_ms_{6000};
   uint32_t trigger_timeout_cold_ms_{15000};
+  float    delta_threshold_{5.0f};
+  uint32_t delta_rest_duration_ms_{60000};
 
   // burst runtime state
   uint8_t  burst_read_count_{0};

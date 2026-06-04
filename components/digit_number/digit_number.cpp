@@ -275,12 +275,12 @@ void DigitNumber::burst_tick_() {
     burst_had_ok_ = false;
     if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
       const float delta = std::abs(last_valid_ - prev_burst_value_);
-      if (delta >= 5.0f) {
-        burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, (uint32_t)60000);
-        ESP_LOGI(TAG, "Burst done: delta=%.0fmm >= 5mm, rest shortened to %ums", delta, (unsigned)burst_current_rest_ms_);
+      if (delta >= delta_threshold_) {
+        burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);
+        ESP_LOGI(TAG, "Burst done: delta=%.2f >= %.2f, rest shortened to %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
       } else {
         burst_current_rest_ms_ = burst_rest_duration_ms_;
-        ESP_LOGI(TAG, "Burst done: delta=%.0fmm < 5mm, resting %ums", delta, (unsigned)burst_current_rest_ms_);
+        ESP_LOGI(TAG, "Burst done: delta=%.2f < %.2f, resting %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
       }
     } else {
       burst_current_rest_ms_ = burst_rest_duration_ms_;
