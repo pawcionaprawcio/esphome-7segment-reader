@@ -25,6 +25,7 @@ CONF_TRIGGER_TIMEOUT_WARM = "trigger_timeout_warm"
 CONF_TRIGGER_TIMEOUT_COLD = "trigger_timeout_cold"
 CONF_DELTA_THRESHOLD = "delta_threshold"
 CONF_DELTA_REST_DURATION = "delta_rest_duration"
+CONF_AUTO_TRIGGER_ON_READY = "auto_trigger_on_ready"
 CONF_DECIMAL_DIGITS = "decimal_digits"
 CONF_MULTIPLIER = "multiplier"
 CONF_OFFSET = "offset"
@@ -81,6 +82,7 @@ CONFIG_SCHEMA = cv.All(
         cv.Optional(CONF_LAST_STATE): text_sensor.text_sensor_schema(
             icon="mdi:information-outline",
         ),
+        cv.Optional(CONF_AUTO_TRIGGER_ON_READY, default=True): cv.boolean,
         cv.Optional(CONF_TRIGGER_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_BURST_MODE): BURST_MODE_SCHEMA,
         cv.Optional(CONF_DECIMAL_DIGITS, default=0): cv.uint8_t,
@@ -138,6 +140,7 @@ async def to_code(config):
         cg.add(var.set_delta_threshold(bm[CONF_DELTA_THRESHOLD]))
         cg.add(var.set_delta_rest_duration_ms(bm[CONF_DELTA_REST_DURATION]))
 
+    cg.add(var.set_auto_trigger_on_ready(config[CONF_AUTO_TRIGGER_ON_READY]))
     cg.add(var.set_decimal_digits(config[CONF_DECIMAL_DIGITS]))
     cg.add(var.set_multiplier(config[CONF_MULTIPLIER]))
     cg.add(var.set_offset(config[CONF_OFFSET]))

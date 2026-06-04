@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.1.4"
+#define DIGIT_NUMBER_VERSION "2.1.5"
 
 #include <array>
 #include <memory>
@@ -53,6 +53,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_trigger_timeout_cold_ms(uint32_t ms) { trigger_timeout_cold_ms_ = ms; }
   void set_delta_threshold(float v) { delta_threshold_ = v; }
   void set_delta_rest_duration_ms(uint32_t ms) { delta_rest_duration_ms_ = ms; }
+  void set_auto_trigger_on_ready(bool v) { auto_trigger_on_ready_ = v; }
   void set_decimal_digits(uint8_t d) { decimal_digits_ = d; }
   void set_multiplier(float v) { multiplier_ = v; }
   void set_offset(float v) { offset_ = v; }
@@ -113,6 +114,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   // last_state string for trigger logic
   std::string last_state_str_{"off"};
 
+  bool     auto_trigger_on_ready_{true};
   uint8_t  decimal_digits_{0};
   float    multiplier_{1.0f};
   float    offset_{0.0f};

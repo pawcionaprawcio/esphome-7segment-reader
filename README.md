@@ -194,6 +194,7 @@ sensor:
 | `offset` | float | `0.0` | Offset added after multiplier |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
+| `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Set `false` to disable. |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
 | `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
 | `burst_mode.trigger_interval` | duration | `10s` | Interval between pulses within a burst |
