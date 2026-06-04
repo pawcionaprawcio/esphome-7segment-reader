@@ -66,6 +66,8 @@ sensor:
   - platform: digit_number
     name: "Distance"
     camera_id: my_camera
+    unit_of_measurement: "mm"   # change to match your display (cm, kg, °C, etc.)
+    accuracy_decimals: 0        # increase if your display shows decimals
     update_interval: 2s
     sample_radius: 5
     threshold: auto

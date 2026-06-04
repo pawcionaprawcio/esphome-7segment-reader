@@ -153,14 +153,16 @@ sensor:
   - platform: digit_number
     name: "Distance"
     camera_id: my_camera
+    unit_of_measurement: "mm"   # optional, default: mm — change to cm, kg, °C, etc.
+    accuracy_decimals: 0        # optional, default: 0 (integer)
     update_interval: 2s
-    sample_radius: 3          # pixels averaged around each sample point
-    threshold: auto           # or fixed int 0-255
-    display_off_threshold: 10 # max brightness below this = display off
+    sample_radius: 3            # pixels averaged around each sample point
+    threshold: auto             # or fixed int 0-255
+    display_off_threshold: 10   # max brightness below this = display off
     digits:
-      - a: [195, 175]         # top horizontal center [x, y]
-        d: [195, 265]         # bottom horizontal center [x, y]
-        b: [250, 200]         # top-right vertical center [x, y]
+      - a: [195, 175]           # top horizontal center [x, y]
+        d: [195, 265]           # bottom horizontal center [x, y]
+        b: [250, 200]           # top-right vertical center [x, y]
       - a: [285, 175]
         d: [285, 265]
         b: [340, 200]
@@ -185,6 +187,8 @@ sensor:
 | `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(min+max)/2` per frame |
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
+| `unit_of_measurement` | string | `mm` | Sensor unit published to Home Assistant (e.g. `mm`, `cm`, `kg`, `°C`) |
+| `accuracy_decimals` | int | `0` | Decimal places in published value |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
@@ -202,9 +206,9 @@ sensor:
 
 ## Sensor output
 
-- **Unit**: mm
-- **Accuracy**: 0 decimal places (integer)
-- **Range**: 0–9999 mm (or limited by `max_value`)
+- **Unit**: configurable via `unit_of_measurement` (default: `mm`)
+- **Accuracy**: configurable via `accuracy_decimals` (default: `0` — integer)
+- **Range**: 0–9999 (4 digits) or limited by `max_value`
 - **NaN** published when: display off, unknown segment pattern, camera unavailable
 
 ### `last_state` values
