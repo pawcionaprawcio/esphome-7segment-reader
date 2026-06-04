@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.1.9"
+#define DIGIT_NUMBER_VERSION "2.1.10"
 
 #include <array>
 #include <memory>
