@@ -189,6 +189,9 @@ sensor:
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
 | `unit_of_measurement` | string | `mm` | Sensor unit published to Home Assistant (e.g. `mm`, `cm`, `kg`, `°C`) |
 | `accuracy_decimals` | int | `0` | Decimal places in published value |
+| `decimal_digits` | int | `0` | Shift decimal point by N places (e.g. `1` → `1234` becomes `123.4`) |
+| `multiplier` | float | `1.0` | Scale factor applied after decimal shift: `value = raw / 10^decimal_digits * multiplier + offset` |
+| `offset` | float | `0.0` | Offset added after multiplier |
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |

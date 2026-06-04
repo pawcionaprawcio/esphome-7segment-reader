@@ -228,9 +228,9 @@ void DigitNumber::process_image_() {
       publish_all_("fail");
       return;
     }
-    int32_t multiplier = 1;
-    for (int k = d + 1; k < num_digits; k++) multiplier *= 10;
-    value += digit * multiplier;
+    int32_t place_value = 1;
+    for (int k = d + 1; k < num_digits; k++) place_value *= 10;
+    value += digit * place_value;
   }
 
   if (max_value_ >= 0 && value > max_value_) {
@@ -239,8 +239,15 @@ void DigitNumber::process_image_() {
     return;
   }
 
-  ESP_LOGD(TAG, "Publishing value: %d mm", (int)value);
-  last_valid_ = (float)value;
+  float fval = (float)value;
+  if (decimal_digits_ > 0) {
+    float divisor = 1.0f;
+    for (uint8_t i = 0; i < decimal_digits_; i++) divisor *= 10.0f;
+    fval /= divisor;
+  }
+  fval = fval * multiplier_ + offset_;
+  ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
+  last_valid_ = fval;
   last_valid_ms_ = millis();
   burst_had_ok_ = true;
   publish_state(last_valid_);
