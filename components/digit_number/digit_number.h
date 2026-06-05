@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.2.6"
+#define DIGIT_NUMBER_VERSION "2.2.7"
 
 #include "digit_logic.h"
 #include <array>

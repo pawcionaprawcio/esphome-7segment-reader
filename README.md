@@ -36,7 +36,7 @@ external_components:
     refresh: always
 ```
 
-A minimal working config for ESP32-CAM is available in [`test.yaml`](test.yaml).
+A minimal working config for ESP32-CAM is available in [`example_config.yaml`](example_config.yaml).
 
 ## Segment layout
 

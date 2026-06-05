@@ -71,4 +71,4 @@ sensor:
       # ... remaining digits
 ```
 
-See the main [README](../README.md) and [`config.yaml`](../config.yaml) for full pin configuration.
+See the main [README](../README.md) and [`example_config.yaml`](../example_config.yaml) for full pin configuration.
