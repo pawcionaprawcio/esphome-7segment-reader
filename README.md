@@ -272,6 +272,10 @@ make
 
 Tests `decode_digit`, `derive_geometry`, `sample_brightness` from `digit_logic.h`. Requires `g++` with C++17 support — no ESP32 toolchain needed.
 
+## Hardware example
+
+See [docs/hardware.md](docs/hardware.md) for a complete real-world build: PARKSIDE HG10193 laser distance meter wired to ESP32-CAM, mounted in a 110 mm PVC pipe with a float, measuring water tank depth.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
