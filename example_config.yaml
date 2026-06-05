@@ -75,20 +75,20 @@ sensor:
     threshold: auto
     display_off_threshold: 60
     digits:
-      # Calibrated for test_cases/size_2 (640x480).
+      # Calibrated for test_cases/size_1 (800x600).
       # Use calibration.html to find your own coordinates:
       #   1. Save snapshots from http://<ip>:8080 into a folder
       #   2. Open calibration.html, load the folder
       #   3. Place anchors, click YAML → Copy, paste here
-      - a: [105, 143]
-        d: [105, 355]
-        b: [140, 196]
-      - a: [230, 143]
-        d: [230, 355]
-        b: [265, 196]
-      - a: [362, 143]
-        d: [362, 355]
-        b: [398, 196]
-      - a: [485, 143]
-        d: [485, 355]
-        b: [515, 196]
+      - a: [128, 188]
+        d: [110, 437]
+        b: [169, 253]
+      - a: [282, 192]
+        d: [271, 443]
+        b: [324, 259]
+      - a: [444, 197]
+        d: [423, 445]
+        b: [482, 258]
+      - a: [603, 201]
+        d: [586, 450]
+        b: [642, 263]
