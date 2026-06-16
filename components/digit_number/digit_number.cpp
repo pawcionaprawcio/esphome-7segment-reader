@@ -186,6 +186,7 @@ void DigitNumber::process_image_() {
   ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
   last_valid_ = fval;
   last_valid_ms_ = millis();
+  last_state_str_ = "ok";
   burst_had_ok_ = true;
   publish_state(last_valid_);
   if (last_state_sensor_)
