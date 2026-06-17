@@ -113,6 +113,7 @@ void DigitNumber::process_image_() {
   }
 
   std::vector<uint8_t> bitmasks(num_digits);
+  std::vector<uint8_t> thresholds(num_digits);
   for (int d = 0; d < num_digits; d++) {
     uint8_t thresh;
     if (threshold_ >= 0) {
@@ -121,6 +122,7 @@ void DigitNumber::process_image_() {
       const uint8_t bright_max = *std::max_element(brightness[d].begin(), brightness[d].end());
       thresh = (uint8_t)(((uint16_t)black_ref[d] + bright_max) / 2);
     }
+    thresholds[d] = thresh;
     uint8_t bm = 0;
     for (int s = 0; s < 7; s++) {
       if (brightness[d][s] >= thresh)
@@ -184,6 +186,19 @@ void DigitNumber::process_image_() {
     fval /= divisor;
   }
   fval = fval * multiplier_ + offset_;
+  if (anomaly_sensor_ != nullptr && !std::isnan(prev_burst_value_) &&
+      std::abs(fval - prev_burst_value_) > delta_threshold_) {
+    char abuf[256];
+    int apos = snprintf(abuf, sizeof(abuf), "val=%.0f prev=%.0f delta=%+.0f",
+                        fval, prev_burst_value_, fval - prev_burst_value_);
+    for (int d = 0; d < num_digits && apos < (int)sizeof(abuf) - 1; d++) {
+      apos += snprintf(abuf + apos, sizeof(abuf) - apos,
+                       " |d%d:a=%d d=%d g=%d t=%d",
+                       d, brightness[d][0], brightness[d][3], brightness[d][6], thresholds[d]);
+    }
+    ESP_LOGW(TAG, "Anomaly: %s", abuf);
+    anomaly_sensor_->publish_state(abuf);
+  }
   last_valid_ = fval;
   last_valid_ms_ = millis();
   last_state_str_ = "ok";

@@ -31,6 +31,7 @@ CONF_MULTIPLIER = "multiplier"
 CONF_OFFSET = "offset"
 CONF_MAX_VALUE = "max_value"
 CONF_INVERTED = "inverted"
+CONF_ANOMALY_SENSOR = "anomaly_sensor"
 
 BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_BURST_COUNT, default=3): cv.positive_int,
@@ -83,6 +84,9 @@ CONFIG_SCHEMA = cv.All(
         cv.Optional(CONF_LAST_STATE): text_sensor.text_sensor_schema(
             icon="mdi:information-outline",
         ),
+        cv.Optional(CONF_ANOMALY_SENSOR): text_sensor.text_sensor_schema(
+            icon="mdi:alert",
+        ),
         cv.Optional(CONF_AUTO_TRIGGER_ON_READY, default=True): cv.boolean,
         cv.Optional(CONF_TRIGGER_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_BURST_MODE): BURST_MODE_SCHEMA,
@@ -125,6 +129,10 @@ async def to_code(config):
     if CONF_LAST_STATE in config:
         ts = await text_sensor.new_text_sensor(config[CONF_LAST_STATE])
         cg.add(var.set_last_state_sensor(ts))
+
+    if CONF_ANOMALY_SENSOR in config:
+        ts = await text_sensor.new_text_sensor(config[CONF_ANOMALY_SENSOR])
+        cg.add(var.set_anomaly_sensor(ts))
 
     if CONF_TRIGGER_PIN in config:
         pin = await cg.gpio_pin_expression(config[CONF_TRIGGER_PIN])

@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.2.12"
+#define DIGIT_NUMBER_VERSION "2.2.13"
 
 #include "digit_logic.h"
 #include <array>
@@ -21,6 +21,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
   void set_last_state_sensor(text_sensor::TextSensor *s) { last_state_sensor_ = s; }
+  void set_anomaly_sensor(text_sensor::TextSensor *s) { anomaly_sensor_ = s; }
   void add_digit(DigitAnchors anchors) { digits_.push_back(anchors); }
   void set_sample_radius(uint8_t r) { sample_radius_ = r; }
   void set_threshold(int t) { threshold_ = t; }
@@ -60,6 +61,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
 
   esp32_camera::ESP32Camera *camera_{nullptr};
   text_sensor::TextSensor *last_state_sensor_{nullptr};
+  text_sensor::TextSensor *anomaly_sensor_{nullptr};
   std::vector<DigitAnchors> digits_;
   std::vector<DigitGeometry> geometries_;
   uint8_t sample_radius_{2};
