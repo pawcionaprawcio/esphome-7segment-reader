@@ -127,7 +127,7 @@ void DigitNumber::process_image_() {
         bm |= (1 << s);
     }
     bitmasks[d] = bm;
-    ESP_LOGD(TAG, "Digit %d: bg=%d thresh=%d bitmask=0x%02X (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
+    ESP_LOGV(TAG, "Digit %d: bg=%d thresh=%d bitmask=0x%02X (segs a=%d b=%d c=%d d=%d e=%d f=%d g=%d)",
              d, black_ref[d], thresh, bm,
              brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
              brightness[d][4], brightness[d][5], brightness[d][6]);
@@ -242,7 +242,7 @@ void DigitNumber::burst_tick_() {
                          i == best_idx ? "[%.2f] " : "%.2f ", burst_readings_[i]);
         if (rpos >= (int)sizeof(rbuf) - 1) break;
       }
-      ESP_LOGD(TAG, "Burst end: readings=%s→ publish=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
+      ESP_LOGI(TAG, "Burst end: readings=%s→ publish=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
       last_valid_ = best;
       publish_state(best);
       if (last_state_sensor_) last_state_sensor_->publish_state("ok");
