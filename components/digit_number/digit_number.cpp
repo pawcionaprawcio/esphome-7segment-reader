@@ -183,12 +183,17 @@ void DigitNumber::process_image_() {
     fval /= divisor;
   }
   fval = fval * multiplier_ + offset_;
-  ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
   last_valid_ = fval;
   last_valid_ms_ = millis();
   last_state_str_ = "ok";
   burst_had_ok_ = true;
-  publish_state(last_valid_);
+  if (trigger_pin_ != nullptr) {
+    burst_readings_.push_back(fval);
+    ESP_LOGD(TAG, "Burst reading #%d: %.4f (raw=%d)", (int)burst_readings_.size(), fval, (int)value);
+  } else {
+    ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
+    publish_state(last_valid_);
+  }
   if (last_state_sensor_)
     last_state_sensor_->publish_state("ok");
 }
@@ -202,6 +207,7 @@ void DigitNumber::burst_tick_() {
     ESP_LOGI(TAG, "Burst rest done, resuming");
     burst_resting_ = false;
     burst_read_count_ = 0;
+    burst_readings_.clear();
     paused_ = false;
   }
   if (trigger_busy_) {
@@ -218,6 +224,21 @@ void DigitNumber::burst_tick_() {
       return;
     }
     burst_had_ok_ = false;
+    if (!burst_readings_.empty()) {
+      float best = burst_readings_.back();
+      if (!std::isnan(prev_burst_value_)) {
+        float best_dist = std::abs(best - prev_burst_value_);
+        for (float r : burst_readings_) {
+          const float d = std::abs(r - prev_burst_value_);
+          if (d < best_dist) { best_dist = d; best = r; }
+        }
+      }
+      last_valid_ = best;
+      ESP_LOGI(TAG, "Burst: best=%.4f from %d readings (prev=%.4f)", best, (int)burst_readings_.size(), prev_burst_value_);
+      publish_state(best);
+      if (last_state_sensor_) last_state_sensor_->publish_state("ok");
+      burst_readings_.clear();
+    }
     if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
       const float delta = std::abs(last_valid_ - prev_burst_value_);
       if (delta >= delta_threshold_) {
@@ -248,6 +269,7 @@ void DigitNumber::force_burst_now() {
     ESP_LOGI(TAG, "Take Measurement: cancelling rest, starting burst now");
     burst_resting_ = false;
     burst_read_count_ = 0;
+    burst_readings_.clear();
     paused_ = false;
     pending_pause_ = false;
     burst_had_ok_ = false;

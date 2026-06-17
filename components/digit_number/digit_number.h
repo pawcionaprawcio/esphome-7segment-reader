@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.2.9"
+#define DIGIT_NUMBER_VERSION "2.2.10"
 
 #include "digit_logic.h"
 #include <array>
@@ -105,6 +105,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t last_valid_ms_{0};
   float prev_burst_value_{NAN};
   uint32_t burst_current_rest_ms_{0};
+  std::vector<float> burst_readings_;
 };
 
 template<typename... Ts>
