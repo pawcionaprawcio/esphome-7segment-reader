@@ -3,6 +3,7 @@
 #include "esp_camera.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace esphome {
 namespace digit_number {
@@ -225,16 +226,24 @@ void DigitNumber::burst_tick_() {
     }
     burst_had_ok_ = false;
     if (!burst_readings_.empty()) {
-      float best = burst_readings_.back();
+      int best_idx = (int)burst_readings_.size() - 1;
       if (!std::isnan(prev_burst_value_)) {
-        float best_dist = std::abs(best - prev_burst_value_);
-        for (float r : burst_readings_) {
-          const float d = std::abs(r - prev_burst_value_);
-          if (d < best_dist) { best_dist = d; best = r; }
+        float best_dist = std::abs(burst_readings_[best_idx] - prev_burst_value_);
+        for (int i = 0; i < (int)burst_readings_.size(); i++) {
+          const float d = std::abs(burst_readings_[i] - prev_burst_value_);
+          if (d < best_dist) { best_dist = d; best_idx = i; }
         }
       }
+      float best = burst_readings_[best_idx];
+      char rbuf[128];
+      int rpos = 0;
+      for (int i = 0; i < (int)burst_readings_.size(); i++) {
+        rpos += snprintf(rbuf + rpos, sizeof(rbuf) - rpos,
+                         i == best_idx ? "[%.2f] " : "%.2f ", burst_readings_[i]);
+        if (rpos >= (int)sizeof(rbuf) - 1) break;
+      }
+      ESP_LOGD(TAG, "Burst end: readings=%s→ publish=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
       last_valid_ = best;
-      ESP_LOGI(TAG, "Burst: best=%.4f from %d readings (prev=%.4f)", best, (int)burst_readings_.size(), prev_burst_value_);
       publish_state(best);
       if (last_state_sensor_) last_state_sensor_->publish_state("ok");
       burst_readings_.clear();
