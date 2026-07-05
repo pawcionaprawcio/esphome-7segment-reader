@@ -240,6 +240,7 @@ void DigitNumber::burst_tick_() {
       return;
     }
     burst_had_ok_ = false;
+    bool spike_held = false;
     if (!burst_readings_.empty()) {
       int best_idx = (int)burst_readings_.size() - 1;
       if (!std::isnan(prev_burst_value_)) {
@@ -257,13 +258,50 @@ void DigitNumber::burst_tick_() {
                          i == best_idx ? "[%.2f] " : "%.2f ", burst_readings_[i]);
         if (rpos >= (int)sizeof(rbuf) - 1) break;
       }
-      ESP_LOGI(TAG, "Burst end: readings=%s→ publish=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
-      last_valid_ = best;
-      publish_state(best);
-      if (last_state_sensor_) last_state_sensor_->publish_state("ok");
+      ESP_LOGI(TAG, "Burst end: readings=%s→ candidate=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
+
+      // Confirmation gate: a jump beyond delta_threshold must repeat across
+      // confirm_bursts_ bursts before we trust it. A single-frame glare spike
+      // (e.g. 0 misread as 8) is thus held back, not published.
+      bool accept = true;
+      if (confirm_bursts_ > 1 && !std::isnan(prev_burst_value_) &&
+          std::abs(best - prev_burst_value_) > delta_threshold_) {
+        if (!std::isnan(pending_value_) &&
+            std::abs(best - pending_value_) <= delta_threshold_) {
+          pending_confirms_++;
+        } else {
+          pending_value_ = best;
+          pending_confirms_ = 1;
+        }
+        if (pending_confirms_ < confirm_bursts_) {
+          accept = false;
+          spike_held = true;
+          ESP_LOGW(TAG, "Delta %.2f > %.2f unconfirmed (%d/%d) — holding prev %.2f",
+                   std::abs(best - prev_burst_value_), delta_threshold_,
+                   pending_confirms_, confirm_bursts_, prev_burst_value_);
+        } else {
+          ESP_LOGI(TAG, "Delta confirmed over %d bursts — publishing %.2f",
+                   pending_confirms_, best);
+          pending_value_ = NAN;
+          pending_confirms_ = 0;
+        }
+      } else {
+        pending_value_ = NAN;
+        pending_confirms_ = 0;
+      }
+
+      if (accept) {
+        last_valid_ = best;
+        publish_state(best);
+        if (last_state_sensor_) last_state_sensor_->publish_state("ok");
+      }
       burst_readings_.clear();
     }
-    if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
+    if (spike_held) {
+      // held an unconfirmed jump — re-check soon to confirm or discard it
+      burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);
+      ESP_LOGI(TAG, "Burst done: candidate held, re-checking in %ums", (unsigned)burst_current_rest_ms_);
+    } else if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
       const float delta = std::abs(last_valid_ - prev_burst_value_);
       if (delta >= delta_threshold_) {
         burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);

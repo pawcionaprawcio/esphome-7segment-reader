@@ -25,6 +25,7 @@ CONF_TRIGGER_TIMEOUT_WARM = "trigger_timeout_warm"
 CONF_TRIGGER_TIMEOUT_COLD = "trigger_timeout_cold"
 CONF_DELTA_THRESHOLD = "delta_threshold"
 CONF_DELTA_REST_DURATION = "delta_rest_duration"
+CONF_CONFIRM_BURSTS = "confirm_bursts"
 CONF_AUTO_TRIGGER_ON_READY = "auto_trigger_on_ready"
 CONF_DECIMAL_DIGITS = "decimal_digits"
 CONF_MULTIPLIER = "multiplier"
@@ -43,6 +44,7 @@ BURST_MODE_SCHEMA = cv.Schema({
     cv.Optional(CONF_TRIGGER_TIMEOUT_COLD, default="15s"): cv.positive_time_period_milliseconds,
     cv.Optional(CONF_DELTA_THRESHOLD, default=5.0): cv.float_,
     cv.Optional(CONF_DELTA_REST_DURATION, default="60s"): cv.positive_time_period_milliseconds,
+    cv.Optional(CONF_CONFIRM_BURSTS, default=2): cv.uint8_t,
 })
 
 
@@ -149,6 +151,7 @@ async def to_code(config):
         cg.add(var.set_trigger_timeout_cold_ms(bm[CONF_TRIGGER_TIMEOUT_COLD]))
         cg.add(var.set_delta_threshold(bm[CONF_DELTA_THRESHOLD]))
         cg.add(var.set_delta_rest_duration_ms(bm[CONF_DELTA_REST_DURATION]))
+        cg.add(var.set_confirm_bursts(bm[CONF_CONFIRM_BURSTS]))
 
     cg.add(var.set_auto_trigger_on_ready(config[CONF_AUTO_TRIGGER_ON_READY]))
     cg.add(var.set_decimal_digits(config[CONF_DECIMAL_DIGITS]))

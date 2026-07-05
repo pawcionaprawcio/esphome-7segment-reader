@@ -38,14 +38,13 @@ constexpr uint8_t SEGMENT_PATTERNS[10] = {
 };
 constexpr uint8_t DASH_BITMASK = 0b1000000;
 
+// Exact segment match only. The former 1-bit fuzzy fallback fabricated a
+// confident digit from a corrupt reading — a glare-lit middle bar plus a
+// dropped bottom bar (bitmask 0x77) got "corrected" to 8, publishing a real 0
+// as 8. Corrupt frames must fail here; burst re-reads recover dropped segments.
 inline int8_t decode_digit(uint8_t bitmask) {
   for (int i = 0; i < 10; i++) {
     if (SEGMENT_PATTERNS[i] == bitmask)
-      return (int8_t)i;
-  }
-  for (int i = 0; i < 10; i++) {
-    const uint8_t diff = bitmask ^ SEGMENT_PATTERNS[i];
-    if (diff && (diff & (diff - 1)) == 0)
       return (int8_t)i;
   }
   return -1;

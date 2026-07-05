@@ -210,6 +210,7 @@ sensor:
 | `burst_mode.trigger_timeout_cold` | duration | `15s` | Max wait for valid reading after cold-start trigger |
 | `burst_mode.delta_threshold` | float | `5.0` | Value change considered significant (in sensor units); triggers shortened rest |
 | `burst_mode.delta_rest_duration` | duration | `60s` | Shortened rest duration when delta ≥ `delta_threshold` |
+| `burst_mode.confirm_bursts` | int | 2 | Consecutive bursts a jump beyond `delta_threshold` must repeat before it is published; a lone spike (e.g. glare misreading 0 as 8) is held back. `1` disables the gate. |
 
 ### Pixel format
 

@@ -44,6 +44,13 @@ def test_unknown_bitmask_returns_none():
     assert decode_digit(0b1010101) is None  # random invalid
 
 
+def test_glare_corruption_fails_not_misdecodes():
+    # Real 0 with glare-lit middle bar (g) and dropped bottom bar (d) reads as
+    # 0b1110111 (0x77). It is 1 bit from 8 — the removed fuzzy match published it
+    # as 8. Exact-only decode must reject it so the frame fails instead.
+    assert decode_digit(0b1110111) is None
+
+
 def test_display_off_detection():
     # Helper: all 28 brightnesses below threshold
     brightnesses = [5] * 28

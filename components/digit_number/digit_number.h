@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.2.13"
+#define DIGIT_NUMBER_VERSION "2.3.1"
 
 #include "digit_logic.h"
 #include <array>
@@ -38,6 +38,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_trigger_timeout_cold_ms(uint32_t ms) { trigger_timeout_cold_ms_ = ms; }
   void set_delta_threshold(float v) { delta_threshold_ = v; }
   void set_delta_rest_duration_ms(uint32_t ms) { delta_rest_duration_ms_ = ms; }
+  void set_confirm_bursts(uint8_t n) { confirm_bursts_ = n; }
   void set_auto_trigger_on_ready(bool v) { auto_trigger_on_ready_ = v; }
   void set_decimal_digits(uint8_t d) { decimal_digits_ = d; }
   void set_multiplier(float v) { multiplier_ = v; }
@@ -83,6 +84,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   uint32_t trigger_timeout_cold_ms_{15000};
   float    delta_threshold_{5.0f};
   uint32_t delta_rest_duration_ms_{60000};
+  uint8_t  confirm_bursts_{2};  // bursts a >delta jump must repeat before publish
 
   // burst runtime state
   uint8_t  burst_read_count_{0};
@@ -108,6 +110,9 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   float prev_burst_value_{NAN};
   uint32_t burst_current_rest_ms_{0};
   std::vector<float> burst_readings_;
+  // confirmation gate: unconfirmed big-delta candidate
+  float   pending_value_{NAN};
+  uint8_t pending_confirms_{0};
 };
 
 template<typename... Ts>

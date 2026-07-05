@@ -28,10 +28,14 @@ TEST_CASE("decode_digit: DASH_BITMASK returns -1") {
     CHECK(digit_logic::decode_digit(digit_logic::DASH_BITMASK) == -1);
 }
 
-TEST_CASE("decode_digit: 1-bit fuzzy match") {
-    CHECK(digit_logic::decode_digit(0b0111110) == 0);   // digit 0, bit 0 off
-    CHECK(digit_logic::decode_digit(0b1110111) == 8);   // digit 8, bit 3 off
-    CHECK(digit_logic::decode_digit(0b0000100) == 1);   // digit 1, bit 1 off
+TEST_CASE("decode_digit: near-miss bitmasks fail (fuzzy match removed)") {
+    // A single dropped/added segment no longer resolves to a digit — corrupt
+    // frames must fail so burst re-reads or the confirmation gate handle them.
+    CHECK(digit_logic::decode_digit(0b0111110) == -1);  // 0 with bit 0 off
+    CHECK(digit_logic::decode_digit(0b0000100) == -1);  // 1 with bit 1 off
+    // Glare-lit g + dropped d on a real 0 (0x77) is 1 bit from 8: was misread
+    // as 8, now rejected. This is the anomaly that motivated the change.
+    CHECK(digit_logic::decode_digit(0b1110111) == -1);
 }
 
 // ---- derive_geometry ----
