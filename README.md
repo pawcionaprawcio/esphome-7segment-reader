@@ -189,6 +189,7 @@ sensor:
 | `digits[].b` | [x, y] | required | Top-right vertical segment center pixel |
 | `sample_radius` | int | 2 | Radius of averaging patch in pixels |
 | `threshold` | `auto` or 0–255 | `auto` | Segment ON/OFF threshold. `auto` = `(black_ref + max) / 2` per digit (`black_ref` = background sample from digit interior) |
+| `hysteresis` | int 0–255 | `0` | Per-segment deadband around the threshold. An ON segment stays ON until brightness drops below `threshold - hysteresis`; an OFF segment stays OFF until brightness reaches `threshold + hysteresis`. Suppresses ±1 flicker of a segment sitting on the threshold border. `0` disables it. Calibrate from `ESP_LOGV` per-segment brightness; start around `10`–`15`. |
 | `display_off_threshold` | int | 10 | Max brightness below this → display off → publishes `NaN` |
 | `update_interval` | duration | `5s` | How often to sample a camera frame |
 | `unit_of_measurement` | string | `mm` | Sensor unit published to Home Assistant (e.g. `mm`, `cm`, `kg`, `°C`) |

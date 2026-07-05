@@ -38,6 +38,38 @@ TEST_CASE("decode_digit: near-miss bitmasks fail (fuzzy match removed)") {
     CHECK(digit_logic::decode_digit(0b1110111) == -1);
 }
 
+// ---- segment_on (hysteresis) ----
+
+TEST_CASE("segment_on: margin<=0 is plain threshold passthrough") {
+    // ON iff brightness >= thresh, prev_on irrelevant
+    CHECK(digit_logic::segment_on(100, 100, false, 0) == true);
+    CHECK(digit_logic::segment_on(99,  100, false, 0) == false);
+    CHECK(digit_logic::segment_on(100, 100, true,  0) == true);
+    CHECK(digit_logic::segment_on(99,  100, true,  0) == false);
+    CHECK(digit_logic::segment_on(200, 100, true, -5) == true);   // negative margin also passthrough
+}
+
+TEST_CASE("segment_on: ON holds inside lower deadband") {
+    // prev ON stays ON while brightness >= thresh - margin
+    CHECK(digit_logic::segment_on(95, 100, true, 10) == true);    // in [90,100)
+    CHECK(digit_logic::segment_on(90, 100, true, 10) == true);    // boundary thresh-margin
+    CHECK(digit_logic::segment_on(89, 100, true, 10) == false);   // below deadband -> release
+}
+
+TEST_CASE("segment_on: OFF holds inside upper deadband") {
+    // prev OFF stays OFF until brightness >= thresh + margin
+    CHECK(digit_logic::segment_on(105, 100, false, 10) == false); // in [100,110)
+    CHECK(digit_logic::segment_on(109, 100, false, 10) == false);
+    CHECK(digit_logic::segment_on(110, 100, false, 10) == true);  // boundary thresh+margin -> engage
+}
+
+TEST_CASE("segment_on: no uint8_t underflow/overflow") {
+    // thresh-margin negative: ON should hold for any brightness
+    CHECK(digit_logic::segment_on(0, 5, true, 12) == true);
+    // thresh+margin > 255: OFF should never engage
+    CHECK(digit_logic::segment_on(255, 250, false, 12) == false);
+}
+
 // ---- derive_geometry ----
 
 TEST_CASE("derive_geometry: symmetric no tilt") {

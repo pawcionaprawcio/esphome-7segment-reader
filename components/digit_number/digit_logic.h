@@ -50,6 +50,18 @@ inline int8_t decode_digit(uint8_t bitmask) {
   return -1;
 }
 
+// Per-segment hysteresis. A segment that was ON stays ON until its brightness
+// drops below thresh-margin; a segment that was OFF stays OFF until brightness
+// reaches thresh+margin. margin<=0 disables the deadband (plain threshold).
+// Arithmetic in int to avoid uint8_t wrap when thresh +/- margin leaves [0,255].
+inline bool segment_on(uint8_t brightness, uint8_t thresh, bool prev_on, int margin) {
+  if (margin <= 0)
+    return brightness >= thresh;
+  const int b = (int)brightness;
+  return prev_on ? (b >= (int)thresh - margin)
+                 : (b >= (int)thresh + margin);
+}
+
 inline DigitGeometry derive_geometry(const DigitAnchors &a) {
   const int32_t gx = ((int32_t)a.ax + a.dx) / 2;
   const int32_t gy = ((int32_t)a.ay + a.dy) / 2;

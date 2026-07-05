@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.3.1"
+#define DIGIT_NUMBER_VERSION "2.4.1"
 
 #include "digit_logic.h"
 #include <array>
@@ -45,6 +45,7 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   void set_offset(float v) { offset_ = v; }
   void set_max_value(int32_t v) { max_value_ = v; }
   void set_inverted(bool v) { inverted_ = v; }
+  void set_hysteresis(int v) { hysteresis_ = v; }
   void do_trigger_();
   void force_burst_now();
 
@@ -105,6 +106,9 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
   float    offset_{0.0f};
   int32_t max_value_{-1};
   bool inverted_{false};
+  int  hysteresis_{0};
+  std::vector<uint8_t> prev_seg_state_;  // one bitmask per digit, bit s = segment s last ON/OFF
+  bool has_prev_seg_{false};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
   float prev_burst_value_{NAN};
