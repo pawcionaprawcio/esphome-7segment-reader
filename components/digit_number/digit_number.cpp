@@ -259,6 +259,11 @@ void DigitNumber::burst_tick_() {
         if (rpos >= (int)sizeof(rbuf) - 1) break;
       }
       ESP_LOGI(TAG, "Burst end: readings=%s→ candidate=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
+      if (burst_readings_sensor_ != nullptr) {
+        char sbuf[160];
+        snprintf(sbuf, sizeof(sbuf), "%s→ %.0f", rbuf, best);
+        burst_readings_sensor_->publish_state(sbuf);
+      }
 
       // Confirmation gate: a jump beyond delta_threshold must repeat across
       // confirm_bursts_ bursts before we trust it. A single-frame glare spike

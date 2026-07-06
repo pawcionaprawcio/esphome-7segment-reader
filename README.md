@@ -199,6 +199,7 @@ sensor:
 | `max_value` | int | — | Readings above this value are treated as read errors (`fail`) |
 | `inverted` | bool | `false` | Set `true` for displays with dark segments on bright background. Flips brightness values before thresholding. |
 | `last_state` | text_sensor | — | Optional text sensor: `off` / `ready` / `ok` / `fail` |
+| `burst_readings_sensor` | text_sensor | — | Optional debug text sensor. On each burst publishes the raw per-burst readings with the picked candidate marked, e.g. `1101.00 [1102.00] 1101.00 → 1102`. Lets HA's recorder persist the individual burst reads for diagnosing dither (uniform vs mixed bursts). |
 | `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Only has effect when `trigger_pin` is configured. |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
 | `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
