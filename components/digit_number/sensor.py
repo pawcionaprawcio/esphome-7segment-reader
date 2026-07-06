@@ -32,7 +32,6 @@ CONF_MULTIPLIER = "multiplier"
 CONF_OFFSET = "offset"
 CONF_MAX_VALUE = "max_value"
 CONF_INVERTED = "inverted"
-CONF_HYSTERESIS = "hysteresis"
 CONF_ANOMALY_SENSOR = "anomaly_sensor"
 
 BURST_MODE_SCHEMA = cv.Schema({
@@ -98,7 +97,6 @@ CONFIG_SCHEMA = cv.All(
         cv.Optional(CONF_OFFSET, default=0.0): cv.float_,
         cv.Optional(CONF_MAX_VALUE): cv.positive_int,
         cv.Optional(CONF_INVERTED, default=False): cv.boolean,
-        cv.Optional(CONF_HYSTERESIS, default=0): cv.int_range(min=0, max=255),
     }),
     _validate_burst_requires_trigger,
 )
@@ -164,4 +162,3 @@ async def to_code(config):
         cg.add(var.set_max_value(config[CONF_MAX_VALUE]))
 
     cg.add(var.set_inverted(config[CONF_INVERTED]))
-    cg.add(var.set_hysteresis(config[CONF_HYSTERESIS]))

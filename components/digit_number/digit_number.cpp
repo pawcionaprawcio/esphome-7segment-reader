@@ -16,8 +16,6 @@ void DigitNumber::setup() {
   geometries_.reserve(digits_.size());
   for (const auto &da : digits_)
     geometries_.push_back(digit_logic::derive_geometry(da));
-  prev_seg_state_.assign(digits_.size(), 0);
-  has_prev_seg_ = false;
   static_cast<camera::Camera *>(camera_)->add_listener(this);
   if (trigger_pin_ != nullptr) {
     trigger_pin_->setup();
@@ -127,11 +125,7 @@ void DigitNumber::process_image_() {
     thresholds[d] = thresh;
     uint8_t bm = 0;
     for (int s = 0; s < 7; s++) {
-      const bool prev_on = has_prev_seg_ && (prev_seg_state_[d] & (1 << s));
-      const bool on = has_prev_seg_
-                        ? digit_logic::segment_on(brightness[d][s], thresh, prev_on, hysteresis_)
-                        : (brightness[d][s] >= thresh);
-      if (on)
+      if (brightness[d][s] >= thresh)
         bm |= (1 << s);
     }
     bitmasks[d] = bm;
@@ -140,10 +134,6 @@ void DigitNumber::process_image_() {
              brightness[d][0], brightness[d][1], brightness[d][2], brightness[d][3],
              brightness[d][4], brightness[d][5], brightness[d][6]);
   }
-
-  for (int d = 0; d < num_digits; d++)
-    prev_seg_state_[d] = bitmasks[d];
-  has_prev_seg_ = true;
 
   bool all_zero = true;
   for (int d = 0; d < num_digits; d++) {
