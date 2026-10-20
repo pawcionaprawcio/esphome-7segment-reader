@@ -1,6 +1,6 @@
 #pragma once
 
-#define SEVEN_SEGMENT_READER_VERSION "3.1.1"
+#define SEVEN_SEGMENT_READER_VERSION "3.2.1"
 
 #include "digit_logic.h"
 #include <array>
@@ -58,6 +58,9 @@ class SevenSegmentReader : public sensor::Sensor, public Component, public camer
   void process_image_(const camera_fb_t *fb);
   void publish_all_(const char *state);
   void burst_tick_();
+  void finish_burst_();
+  void measure_press_();
+  void wait_for_ready_();
   void wait_for_ok_();
   void trigger_done_();
 
@@ -110,6 +113,7 @@ class SevenSegmentReader : public sensor::Sensor, public Component, public camer
   bool inverted_{false};
   float last_valid_{NAN};
   uint32_t last_valid_ms_{0};
+  uint32_t last_state_ms_{0};
   float prev_burst_value_{NAN};
   uint32_t burst_current_rest_ms_{0};
   std::vector<float> burst_readings_;

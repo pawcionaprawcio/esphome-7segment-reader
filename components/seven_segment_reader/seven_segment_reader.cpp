@@ -60,6 +60,7 @@ void SevenSegmentReader::on_camera_image(const std::shared_ptr<camera::CameraIma
 
 void SevenSegmentReader::publish_all_(const char *state) {
   last_state_str_ = state;
+  last_state_ms_ = millis();
   // state first, so on_value automations see the current state
   if (last_state_sensor_)
     last_state_sensor_->publish_state(state);
@@ -220,12 +221,12 @@ void SevenSegmentReader::process_image_(const camera_fb_t *fb) {
   last_valid_ = fval;
   last_valid_ms_ = millis();
   last_state_str_ = "ok";
-  burst_had_ok_ = true;
+  last_state_ms_ = last_valid_ms_;
   if (last_state_sensor_)
     last_state_sensor_->publish_state("ok");
   if (trigger_pin_ != nullptr) {
-    burst_readings_.push_back(fval);
-    ESP_LOGD(TAG, "Burst reading #%d: %.4f (raw=%d)", (int)burst_readings_.size(), fval, (int)value);
+    // burst reading is recorded once per trigger in wait_for_ok_()
+    ESP_LOGD(TAG, "Read: %.4f (raw=%d)", fval, (int)value);
   } else {
     ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
     publish_state(last_valid_);
@@ -248,98 +249,102 @@ void SevenSegmentReader::burst_tick_() {
     ESP_LOGD(TAG, "Trigger busy, skipping tick");
     return;
   }
-  do_trigger_();
+  if (burst_read_count_ >= burst_count_)
+    return;  // last trigger still running; finish_burst_() runs when it completes
   burst_read_count_++;
   ESP_LOGI(TAG, "Burst read %d/%d", burst_read_count_, burst_count_);
-  if (burst_read_count_ >= burst_count_) {
-    if (!burst_had_ok_) {
-      ESP_LOGW(TAG, "Burst done but no valid read — retrying burst");
-      burst_read_count_ = 0;
-      return;
-    }
-    burst_had_ok_ = false;
-    bool spike_held = false;
-    if (!burst_readings_.empty()) {
-      const int best_idx = digit_logic::pick_burst_candidate(burst_readings_, prev_burst_value_);
-      float best = burst_readings_[best_idx];
-      char rbuf[128];
-      int rpos = 0;
-      for (int i = 0; i < (int)burst_readings_.size(); i++) {
-        rpos += snprintf(rbuf + rpos, sizeof(rbuf) - rpos,
-                         i == best_idx ? "[%.2f] " : "%.2f ", burst_readings_[i]);
-        if (rpos >= (int)sizeof(rbuf) - 1) break;
-      }
-      ESP_LOGI(TAG, "Burst end: readings=%s→ candidate=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
-      if (burst_readings_sensor_ != nullptr) {
-        char sbuf[160];
-        snprintf(sbuf, sizeof(sbuf), "%s→ %.0f", rbuf, best);
-        burst_readings_sensor_->publish_state(sbuf);
-      }
+  do_trigger_();
+}
 
-      // Confirmation gate: a jump beyond delta_threshold must repeat across
-      // confirm_bursts_ bursts before we trust it. A single-frame glare spike
-      // (e.g. 0 misread as 8) is thus held back, not published.
-      bool accept = true;
-      if (confirm_bursts_ > 1 && !std::isnan(prev_burst_value_) &&
-          std::abs(best - prev_burst_value_) > delta_threshold_) {
-        if (!std::isnan(pending_value_) &&
-            std::abs(best - pending_value_) <= delta_threshold_) {
-          pending_confirms_++;
-        } else {
-          pending_value_ = best;
-          pending_confirms_ = 1;
-        }
-        if (pending_confirms_ < confirm_bursts_) {
-          accept = false;
-          spike_held = true;
-          ESP_LOGW(TAG, "Delta %.2f > %.2f unconfirmed (%d/%d) — holding prev %.2f",
-                   std::abs(best - prev_burst_value_), delta_threshold_,
-                   pending_confirms_, confirm_bursts_, prev_burst_value_);
-        } else {
-          ESP_LOGI(TAG, "Delta confirmed over %d bursts — publishing %.2f",
-                   pending_confirms_, best);
-          pending_value_ = NAN;
-          pending_confirms_ = 0;
-        }
+void SevenSegmentReader::finish_burst_() {
+  if (!burst_had_ok_) {
+    ESP_LOGW(TAG, "Burst done but no valid read — retrying burst");
+    burst_read_count_ = 0;
+    return;
+  }
+  burst_had_ok_ = false;
+  bool spike_held = false;
+  if (!burst_readings_.empty()) {
+    const int best_idx = digit_logic::pick_burst_candidate(burst_readings_, prev_burst_value_);
+    float best = burst_readings_[best_idx];
+    char rbuf[128];
+    int rpos = 0;
+    for (int i = 0; i < (int)burst_readings_.size(); i++) {
+      rpos += snprintf(rbuf + rpos, sizeof(rbuf) - rpos,
+                       i == best_idx ? "[%.2f] " : "%.2f ", burst_readings_[i]);
+      if (rpos >= (int)sizeof(rbuf) - 1) break;
+    }
+    ESP_LOGI(TAG, "Burst end: readings=%s→ candidate=%.2f prev=%.2f", rbuf, best, prev_burst_value_);
+    if (burst_readings_sensor_ != nullptr) {
+      char sbuf[160];
+      snprintf(sbuf, sizeof(sbuf), "%s→ %.0f", rbuf, best);
+      burst_readings_sensor_->publish_state(sbuf);
+    }
+
+    // Confirmation gate: a jump beyond delta_threshold must repeat across
+    // confirm_bursts_ bursts before we trust it. A single-frame glare spike
+    // (e.g. 0 misread as 8) is thus held back, not published.
+    bool accept = true;
+    if (confirm_bursts_ > 1 && !std::isnan(prev_burst_value_) &&
+        std::abs(best - prev_burst_value_) > delta_threshold_) {
+      if (!std::isnan(pending_value_) &&
+          std::abs(best - pending_value_) <= delta_threshold_) {
+        pending_confirms_++;
       } else {
+        pending_value_ = best;
+        pending_confirms_ = 1;
+      }
+      if (pending_confirms_ < confirm_bursts_) {
+        accept = false;
+        spike_held = true;
+        ESP_LOGW(TAG, "Delta %.2f > %.2f unconfirmed (%d/%d) — holding prev %.2f",
+                 std::abs(best - prev_burst_value_), delta_threshold_,
+                 pending_confirms_, confirm_bursts_, prev_burst_value_);
+      } else {
+        ESP_LOGI(TAG, "Delta confirmed over %d bursts — publishing %.2f",
+                 pending_confirms_, best);
         pending_value_ = NAN;
         pending_confirms_ = 0;
       }
-
-      if (accept) {
-        last_valid_ = best;
-        // state first, so on_value automations see "ok" when the value arrives
-        if (last_state_sensor_) last_state_sensor_->publish_state("ok");
-        publish_state(best);
-      }
-      burst_readings_.clear();
+    } else {
+      pending_value_ = NAN;
+      pending_confirms_ = 0;
     }
-    if (spike_held) {
-      // held an unconfirmed jump — re-check soon to confirm or discard it
+
+    if (accept) {
+      last_valid_ = best;
+      // state first, so on_value automations see "ok" when the value arrives
+      if (last_state_sensor_) last_state_sensor_->publish_state("ok");
+      publish_state(best);
+    }
+    burst_readings_.clear();
+  }
+  if (spike_held) {
+    // held an unconfirmed jump — re-check soon to confirm or discard it
+    burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);
+    ESP_LOGI(TAG, "Burst done: candidate held, re-checking in %ums", (unsigned)burst_current_rest_ms_);
+  } else if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
+    const float delta = std::abs(last_valid_ - prev_burst_value_);
+    if (delta >= delta_threshold_) {
       burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);
-      ESP_LOGI(TAG, "Burst done: candidate held, re-checking in %ums", (unsigned)burst_current_rest_ms_);
-    } else if (!std::isnan(prev_burst_value_) && !std::isnan(last_valid_)) {
-      const float delta = std::abs(last_valid_ - prev_burst_value_);
-      if (delta >= delta_threshold_) {
-        burst_current_rest_ms_ = std::min(burst_rest_duration_ms_, delta_rest_duration_ms_);
-        ESP_LOGI(TAG, "Burst done: delta=%.2f >= %.2f, rest shortened to %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
-      } else {
-        burst_current_rest_ms_ = burst_rest_duration_ms_;
-        ESP_LOGI(TAG, "Burst done: delta=%.2f < %.2f, resting %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
-      }
+      ESP_LOGI(TAG, "Burst done: delta=%.2f >= %.2f, rest shortened to %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
     } else {
       burst_current_rest_ms_ = burst_rest_duration_ms_;
-      ESP_LOGI(TAG, "Burst done, resting %ums", (unsigned)burst_current_rest_ms_);
+      ESP_LOGI(TAG, "Burst done: delta=%.2f < %.2f, resting %ums", delta, delta_threshold_, (unsigned)burst_current_rest_ms_);
     }
-    if (!std::isnan(last_valid_))
-      prev_burst_value_ = last_valid_;
-    burst_resting_ = true;
-    burst_rest_start_ms_ = millis();
-    if (trigger_busy_) {
-      pending_pause_ = true;  // pause after trigger completes so last read can be captured
-    } else {
-      paused_ = true;
-    }
+  } else {
+    burst_current_rest_ms_ = burst_rest_duration_ms_;
+    ESP_LOGI(TAG, "Burst done, resting %ums", (unsigned)burst_current_rest_ms_);
+  }
+  // a held spike must not become the reference for the next burst
+  if (!spike_held && !std::isnan(last_valid_))
+    prev_burst_value_ = last_valid_;
+  burst_resting_ = true;
+  burst_rest_start_ms_ = millis();
+  if (trigger_busy_) {
+    pending_pause_ = true;  // pause after trigger completes so last read can be captured
+  } else {
+    paused_ = true;
   }
 }
 
@@ -375,14 +380,44 @@ void SevenSegmentReader::do_trigger_() {
         });
       });
     });
-  } else {
+  } else if (last_state_str_ == "ok") {
+    // Display still shows the previous result: a press only clears it back to
+    // "----", so clear first, wait for the dashes, then press again to measure.
+    ESP_LOGD(TAG, "Trigger: clearing previous result");
     trigger_pin_->digital_write(true);
-    set_timeout("trig_m", trigger_pulse_ms_, [this]() {
+    set_timeout("trig_clr", trigger_pulse_ms_, [this]() {
       trigger_pin_->digital_write(false);
       wait_ok_remaining_ = (int)(trigger_timeout_warm_ms_ / 200);
-      wait_for_ok_();
+      wait_for_ready_();
     });
+  } else {
+    measure_press_();
   }
+}
+
+void SevenSegmentReader::measure_press_() {
+  trigger_start_ms_ = millis();
+  trigger_pin_->digital_write(true);
+  set_timeout("trig_m", trigger_pulse_ms_, [this]() {
+    trigger_pin_->digital_write(false);
+    wait_ok_remaining_ = (int)(trigger_timeout_warm_ms_ / 200);
+    wait_for_ok_();
+  });
+}
+
+void SevenSegmentReader::wait_for_ready_() {
+  if (last_state_str_ == "ready" && last_state_ms_ > trigger_start_ms_) {
+    ESP_LOGD(TAG, "Trigger: result cleared, measuring");
+    measure_press_();
+    return;
+  }
+  if (wait_ok_remaining_ <= 0) {
+    ESP_LOGW(TAG, "Trigger: timeout waiting for display to clear");
+    trigger_done_();
+    return;
+  }
+  wait_ok_remaining_--;
+  set_timeout("wait_ok", 200, [this]() { wait_for_ready_(); });
 }
 
 void SevenSegmentReader::trigger_done_() {
@@ -392,11 +427,17 @@ void SevenSegmentReader::trigger_done_() {
     paused_ = true;
     ESP_LOGI(TAG, "Trigger complete — entering burst rest");
   }
+  if (!burst_resting_ && burst_count_ > 0 && burst_read_count_ >= burst_count_)
+    finish_burst_();
 }
 
 void SevenSegmentReader::wait_for_ok_() {
   if (last_state_str_ == "ok" && last_valid_ms_ > trigger_start_ms_) {
-    ESP_LOGD(TAG, "Trigger: got ok (fresh read after trigger)");
+    // one reading per trigger: the first fresh read after the measure press
+    burst_readings_.push_back(last_valid_);
+    burst_had_ok_ = true;
+    ESP_LOGD(TAG, "Trigger: got ok — burst reading #%d: %.4f",
+             (int)burst_readings_.size(), last_valid_);
     trigger_done_();
     return;
   }

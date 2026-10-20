@@ -202,7 +202,7 @@ sensor:
 | `burst_readings_sensor` | text_sensor | — | Optional debug text sensor. On each burst publishes the raw per-burst readings with the picked candidate marked, e.g. `1101.00 [1102.00] 1101.00 → 1102`. Lets HA's recorder persist the individual burst reads for diagnosing dither (uniform vs mixed bursts). |
 | `auto_trigger_on_ready` | bool | `true` | Auto-fire `trigger_pin` when display shows `----` (all-dash). Only has effect when `trigger_pin` is configured. |
 | `trigger_pin` | pin | — | GPIO output to trigger external measurement device. Requires `burst_mode`. |
-| `burst_mode.count` | int | 3 | Number of trigger pulses per burst |
+| `burst_mode.count` | int | 3 | Number of measurements (triggers) per burst. If the display still shows the previous result, a trigger presses twice: once to clear it to `----`, then once to measure. The burst ends when the last trigger completes. |
 | `burst_mode.trigger_interval` | duration | `10s` | Interval between trigger events within a burst |
 | `burst_mode.rest_duration` | duration | `5min` | Pause between bursts |
 | `burst_mode.trigger_pulse` | duration | `300ms` | Duration of each HIGH pulse sent to `trigger_pin` |
@@ -229,7 +229,7 @@ sensor:
 - **Accuracy**: configurable via `accuracy_decimals` (default: `0` — integer)
 - **Range**: 0–9999 (4 digits) or limited by `max_value`
 - **NaN** published when: display off, unknown segment pattern, camera unavailable
-- **Burst mode** (`trigger_pin` set): the value is published only once per burst, at burst end. Per-frame reads are collected; the published candidate is the reading closest to the previous burst value, or the median on the first burst after boot. `last_state` is published before the value, so `on_value` automations see `ok`.
+- **Burst mode** (`trigger_pin` set): the value is published only once per burst, at burst end. One reading is collected per trigger (the first fresh read after the measure press); the published candidate is the reading closest to the previous burst value, or the median on the first burst after boot. `last_state` is published before the value, so `on_value` automations see `ok`.
 
 ### `last_state` values
 
