@@ -1,6 +1,6 @@
 #pragma once
 
-#define SEVEN_SEGMENT_READER_VERSION "3.0.3"
+#define SEVEN_SEGMENT_READER_VERSION "3.1.1"
 
 #include "digit_logic.h"
 #include <array>
@@ -55,7 +55,7 @@ class SevenSegmentReader : public sensor::Sensor, public Component, public camer
   void on_camera_image(const std::shared_ptr<camera::CameraImage> &image) override;
 
  protected:
-  void process_image_();
+  void process_image_(const camera_fb_t *fb);
   void publish_all_(const char *state);
   void burst_tick_();
   void wait_for_ok_();
@@ -73,6 +73,7 @@ class SevenSegmentReader : public sensor::Sensor, public Component, public camer
   uint32_t update_interval_ms_{5000};
   uint32_t last_publish_ms_{0};
   bool paused_{false};
+  bool jpeg_warned_{false};
   // trigger pin
   GPIOPin *trigger_pin_{nullptr};
 

@@ -115,3 +115,38 @@ TEST_CASE("sample_brightness RGB565: pure white") {
     uint8_t buf[2] = {0xFF, 0xFF};
     CHECK(digit_logic::sample_brightness(buf, 1, 1, PixFmt::RGB565, 0, 0, 0) == 250);
 }
+
+// ---- pick_burst_candidate ----
+
+TEST_CASE("pick_burst_candidate: no prev picks median, not last") {
+    // Real burst from field logs: 7x 1096 then 3x 1105 → majority/median is 1096
+    std::vector<float> r = {1096, 1096, 1096, 1096, 1096, 1096, 1096, 1105, 1105, 1105};
+    const int idx = digit_logic::pick_burst_candidate(r, NAN);
+    CHECK(r[idx] == doctest::Approx(1096));
+}
+
+TEST_CASE("pick_burst_candidate: no prev rejects single outlier") {
+    std::vector<float> r = {1101, 1801, 1102};
+    CHECK(r[digit_logic::pick_burst_candidate(r, NAN)] == doctest::Approx(1102));
+}
+
+TEST_CASE("pick_burst_candidate: no prev even count picks lower median") {
+    std::vector<float> r = {1102, 1101};
+    CHECK(r[digit_logic::pick_burst_candidate(r, NAN)] == doctest::Approx(1101));
+}
+
+TEST_CASE("pick_burst_candidate: with prev picks closest to prev") {
+    std::vector<float> r = {1101, 1102, 1101};
+    CHECK(r[digit_logic::pick_burst_candidate(r, 1102)] == doctest::Approx(1102));
+}
+
+TEST_CASE("pick_burst_candidate: single reading") {
+    std::vector<float> r = {1234};
+    CHECK(digit_logic::pick_burst_candidate(r, NAN) == 0);
+    CHECK(digit_logic::pick_burst_candidate(r, 1000) == 0);
+}
+
+TEST_CASE("pick_burst_candidate: empty returns -1") {
+    std::vector<float> r;
+    CHECK(digit_logic::pick_burst_candidate(r, NAN) == -1);
+}

@@ -1,6 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <vector>
 
 namespace esphome {
 namespace seven_segment_reader {
@@ -96,6 +99,29 @@ inline uint8_t sample_brightness(const uint8_t *buf, uint16_t fw, uint16_t fh,
     }
   }
   return (count > 0) ? (uint8_t)(sum / count) : 0;
+}
+
+// Index of the burst reading to publish, or -1 when empty.
+// With a previous value: the reading closest to it (suppresses ±1 dither).
+// Without one (first burst after boot): the lower median, so a minority of
+// differing reads cannot win just by arriving last.
+inline int pick_burst_candidate(const std::vector<float> &readings, float prev) {
+  const int n = (int)readings.size();
+  if (n == 0) return -1;
+  if (!std::isnan(prev)) {
+    int best = n - 1;
+    float best_dist = std::fabs(readings[best] - prev);
+    for (int i = 0; i < n; i++) {
+      const float d = std::fabs(readings[i] - prev);
+      if (d < best_dist) { best_dist = d; best = i; }
+    }
+    return best;
+  }
+  std::vector<int> order(n);
+  for (int i = 0; i < n; i++) order[i] = i;
+  std::stable_sort(order.begin(), order.end(),
+                   [&readings](int a, int b) { return readings[a] < readings[b]; });
+  return order[(n - 1) / 2];
 }
 
 }  // namespace digit_logic

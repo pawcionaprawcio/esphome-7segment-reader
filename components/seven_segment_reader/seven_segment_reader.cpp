@@ -28,31 +28,52 @@ void SevenSegmentReader::setup() {
   }
 }
 
-void SevenSegmentReader::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
+void SevenSegmentReader::on_camera_image(const std::shared_ptr<camera::CameraImage> &image) {
   if (paused_) return;
   const uint32_t now = millis();
-  if (now - last_publish_ms_ >= update_interval_ms_) {
-    last_publish_ms_ = now;
-    process_image_();
+  if (now - last_publish_ms_ < update_interval_ms_)
+    return;
+  last_publish_ms_ = now;
+
+  // With jpeg_quality: 0 the listener frame is the raw GRAYSCALE/RGB565 buffer:
+  // use it directly. Otherwise esp32_camera hands us a JPEG copy and we have to
+  // pull a separate raw frame from the driver, which blocks the main loop.
+  auto *esp_image = static_cast<esp32_camera::ESP32CameraImage *>(image.get());
+  camera_fb_t *fb = esp_image != nullptr ? esp_image->get_raw_buffer() : nullptr;
+  if (fb != nullptr && fb->format != PIXFORMAT_JPEG) {
+    process_image_(fb);
+    return;
   }
-}
-
-void SevenSegmentReader::publish_all_(const char *state) {
-  last_state_str_ = state;
-  publish_state(last_valid_);
-  if (last_state_sensor_)
-    last_state_sensor_->publish_state(state);
-}
-
-void SevenSegmentReader::process_image_() {
-  const int num_digits = (int)digits_.size();
-
-  ESP_LOGD(TAG, "[v" SEVEN_SEGMENT_READER_VERSION "] processing frame");
-  camera_fb_t *fb = esp_camera_fb_get();
+  if (!jpeg_warned_) {
+    jpeg_warned_ = true;
+    ESP_LOGW(TAG, "Camera delivers JPEG frames; falling back to esp_camera_fb_get(), which blocks "
+                  "the main loop. Set jpeg_quality: 0 in esp32_camera for raw frames.");
+  }
+  fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "esp_camera_fb_get failed");
     return;
   }
+  process_image_(fb);
+  esp_camera_fb_return(fb);
+}
+
+void SevenSegmentReader::publish_all_(const char *state) {
+  last_state_str_ = state;
+  // state first, so on_value automations see the current state
+  if (last_state_sensor_)
+    last_state_sensor_->publish_state(state);
+  // In burst mode the value is published only at burst end; republishing
+  // last_valid_ here would leak single-frame reads past candidate selection
+  // and the confirm gate, and re-fire on_value on every frame.
+  if (trigger_pin_ == nullptr)
+    publish_state(last_valid_);
+}
+
+void SevenSegmentReader::process_image_(const camera_fb_t *fb) {
+  const int num_digits = (int)digits_.size();
+
+  ESP_LOGD(TAG, "[v" SEVEN_SEGMENT_READER_VERSION "] processing frame");
 
   PixFmt fmt;
   if (fb->format == PIXFORMAT_GRAYSCALE) {
@@ -61,7 +82,6 @@ void SevenSegmentReader::process_image_() {
     fmt = PixFmt::RGB565;
   } else {
     ESP_LOGE(TAG, "Unsupported pixel format %d. Use GRAYSCALE or RGB565.", fb->format);
-    esp_camera_fb_return(fb);
     return;
   }
 
@@ -93,8 +113,6 @@ void SevenSegmentReader::process_image_() {
                                                         sample_radius_);
     black_ref[d] = (uint8_t)(((uint16_t)bg0 + bg1) / 2);
   }
-
-  esp_camera_fb_return(fb);
 
   if (inverted_) {
     for (int d = 0; d < num_digits; d++) {
@@ -203,6 +221,8 @@ void SevenSegmentReader::process_image_() {
   last_valid_ms_ = millis();
   last_state_str_ = "ok";
   burst_had_ok_ = true;
+  if (last_state_sensor_)
+    last_state_sensor_->publish_state("ok");
   if (trigger_pin_ != nullptr) {
     burst_readings_.push_back(fval);
     ESP_LOGD(TAG, "Burst reading #%d: %.4f (raw=%d)", (int)burst_readings_.size(), fval, (int)value);
@@ -210,8 +230,6 @@ void SevenSegmentReader::process_image_() {
     ESP_LOGD(TAG, "Publishing value: %.4f (raw=%d)", fval, (int)value);
     publish_state(last_valid_);
   }
-  if (last_state_sensor_)
-    last_state_sensor_->publish_state("ok");
 }
 
 void SevenSegmentReader::burst_tick_() {
@@ -242,14 +260,7 @@ void SevenSegmentReader::burst_tick_() {
     burst_had_ok_ = false;
     bool spike_held = false;
     if (!burst_readings_.empty()) {
-      int best_idx = (int)burst_readings_.size() - 1;
-      if (!std::isnan(prev_burst_value_)) {
-        float best_dist = std::abs(burst_readings_[best_idx] - prev_burst_value_);
-        for (int i = 0; i < (int)burst_readings_.size(); i++) {
-          const float d = std::abs(burst_readings_[i] - prev_burst_value_);
-          if (d < best_dist) { best_dist = d; best_idx = i; }
-        }
-      }
+      const int best_idx = digit_logic::pick_burst_candidate(burst_readings_, prev_burst_value_);
       float best = burst_readings_[best_idx];
       char rbuf[128];
       int rpos = 0;
@@ -297,8 +308,9 @@ void SevenSegmentReader::burst_tick_() {
 
       if (accept) {
         last_valid_ = best;
-        publish_state(best);
+        // state first, so on_value automations see "ok" when the value arrives
         if (last_state_sensor_) last_state_sensor_->publish_state("ok");
+        publish_state(best);
       }
       burst_readings_.clear();
     }

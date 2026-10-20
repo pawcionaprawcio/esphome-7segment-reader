@@ -221,12 +221,15 @@ sensor:
 | `RGB565` | Supported. Converted to grayscale via luma coefficients |
 | `JPEG` | **Not supported.** Too expensive to decode on ESP32 |
 
+**`jpeg_quality`:** with `jpeg_quality: 0` (the `esp32_camera` default for non-JPEG formats) the component reads pixels straight from the frame the camera delivers. With `jpeg_quality > 0`, `esp32_camera` converts every frame to JPEG for the web server / Home Assistant, and the component must pull a separate raw frame with `esp_camera_fb_get()`, which blocks the main loop for up to ~1 s per frame (a warning is logged once). Trade-off: `jpeg_quality: 0` makes processing fast, but the snapshot web server then serves raw pixels instead of a viewable JPEG — set it temporarily to e.g. `10` when you need snapshots for calibration.
+
 ## Sensor output
 
 - **Unit**: configurable via `unit_of_measurement` (default: `mm`)
 - **Accuracy**: configurable via `accuracy_decimals` (default: `0` — integer)
 - **Range**: 0–9999 (4 digits) or limited by `max_value`
 - **NaN** published when: display off, unknown segment pattern, camera unavailable
+- **Burst mode** (`trigger_pin` set): the value is published only once per burst, at burst end. Per-frame reads are collected; the published candidate is the reading closest to the previous burst value, or the median on the first burst after boot. `last_state` is published before the value, so `on_value` automations see `ok`.
 
 ### `last_state` values
 
