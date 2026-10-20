@@ -1,6 +1,6 @@
 # Hardware Example: Water Tank Level Sensor
 
-This example shows how to use `digit_number` to measure water tank depth with a laser distance meter.
+This example shows how to use `seven_segment_reader` to measure water tank depth with a laser distance meter.
 
 ## Device: PARKSIDE HG10193 Laser Distance Meter
 
@@ -28,7 +28,7 @@ The meter originally ran on 2× AAA 1.5V batteries (~3V). The **3.3V pin of the 
 
 ### Camera mounting
 
-The ESP32-CAM is mounted **4 cm from the display**. At this distance the image is intentionally blurred, but `digit_number` handles this — it uses area brightness averaging, not edge detection. Close mounting maximises digit size in the frame.
+The ESP32-CAM is mounted **4 cm from the display**. At this distance the image is intentionally blurred, but `seven_segment_reader` handles this — it uses area brightness averaging, not edge detection. Close mounting maximises digit size in the frame.
 
 | Camera mount | Display view |
 |---|---|
@@ -52,7 +52,7 @@ Total assembly height in this installation: **~2.5 m**.
 
 ```yaml
 sensor:
-  - platform: digit_number
+  - platform: seven_segment_reader
     name: "Water Level"
     camera_id: my_camera
     unit_of_measurement: "mm"

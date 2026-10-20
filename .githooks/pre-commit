@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-FILE="components/digit_number/digit_number.h"
-CURRENT=$(grep -oE 'DIGIT_NUMBER_VERSION "[0-9]+\.[0-9]+\.[0-9]+"' "$FILE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+FILE="components/seven_segment_reader/seven_segment_reader.h"
+CURRENT=$(grep -oE 'SEVEN_SEGMENT_READER_VERSION "[0-9]+\.[0-9]+\.[0-9]+"' "$FILE" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
 
 if [ -z "$CURRENT" ]; then
-  echo "pre-commit: DIGIT_NUMBER_VERSION not found in $FILE" >&2
+  echo "pre-commit: SEVEN_SEGMENT_READER_VERSION not found in $FILE" >&2
   exit 1
 fi
 
@@ -14,7 +14,7 @@ MINOR=$(echo "$CURRENT" | cut -d. -f2)
 PATCH=$(echo "$CURRENT" | cut -d. -f3)
 NEW="${MAJOR}.${MINOR}.$((PATCH + 1))"
 
-sed -i '' "s/DIGIT_NUMBER_VERSION \"${CURRENT}\"/DIGIT_NUMBER_VERSION \"${NEW}\"/" "$FILE"
+sed -i '' "s/SEVEN_SEGMENT_READER_VERSION \"${CURRENT}\"/SEVEN_SEGMENT_READER_VERSION \"${NEW}\"/" "$FILE"
 git add "$FILE"
 
 echo "pre-commit: version ${CURRENT} → ${NEW}"

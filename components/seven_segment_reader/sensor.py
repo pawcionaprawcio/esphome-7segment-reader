@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 import esphome.pins as pins
 from esphome.components import sensor, esp32_camera, text_sensor
 from esphome.const import STATE_CLASS_MEASUREMENT
-from . import digit_number_ns, DigitNumber
+from . import seven_segment_reader_ns, SevenSegmentReader
 
 AUTO_LOAD = ["text_sensor"]
 
@@ -57,7 +57,7 @@ def _validate_burst_requires_trigger(config):
     return config
 
 
-DigitAnchors = digit_number_ns.struct("DigitAnchors")
+DigitAnchors = seven_segment_reader_ns.struct("DigitAnchors")
 
 DIGIT_SCHEMA = cv.Schema({
     cv.Required("a"): cv.All([cv.uint16_t], cv.Length(min=2, max=2)),
@@ -67,7 +67,7 @@ DIGIT_SCHEMA = cv.Schema({
 
 CONFIG_SCHEMA = cv.All(
     sensor.sensor_schema(
-        DigitNumber,
+        SevenSegmentReader,
         unit_of_measurement="mm",
         accuracy_decimals=0,
         state_class=STATE_CLASS_MEASUREMENT,

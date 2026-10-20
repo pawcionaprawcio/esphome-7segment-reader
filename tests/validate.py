@@ -180,7 +180,7 @@ def process_image(path, debug=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate digit_number detection against test images")
+    parser = argparse.ArgumentParser(description="Validate seven_segment_reader detection against test images")
     parser.add_argument("--debug", action="store_true", help="Show per-segment brightness values")
     parser.add_argument("--dir", default=None,
                         help="Directory containing .jpg images (default: test_cases/size_2)")

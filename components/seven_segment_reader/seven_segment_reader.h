@@ -1,6 +1,6 @@
 #pragma once
 
-#define DIGIT_NUMBER_VERSION "2.4.1"
+#define SEVEN_SEGMENT_READER_VERSION "3.0.1"
 
 #include "digit_logic.h"
 #include <array>
@@ -15,9 +15,9 @@
 #include "esphome/core/gpio.h"
 
 namespace esphome {
-namespace digit_number {
+namespace seven_segment_reader {
 
-class DigitNumber : public sensor::Sensor, public Component, public camera::CameraListener {
+class SevenSegmentReader : public sensor::Sensor, public Component, public camera::CameraListener {
  public:
   void set_camera(esp32_camera::ESP32Camera *camera) { camera_ = camera; }
   void set_last_state_sensor(text_sensor::TextSensor *s) { last_state_sensor_ = s; }
@@ -120,11 +120,11 @@ class DigitNumber : public sensor::Sensor, public Component, public camera::Came
 template<typename... Ts>
 class TriggerMeasurementAction : public Action<Ts...> {
  public:
-  explicit TriggerMeasurementAction(DigitNumber *parent) : parent_(parent) {}
+  explicit TriggerMeasurementAction(SevenSegmentReader *parent) : parent_(parent) {}
   void play(Ts... x) override { parent_->force_burst_now(); }
  private:
-  DigitNumber *parent_;
+  SevenSegmentReader *parent_;
 };
 
-}  // namespace digit_number
+}  // namespace seven_segment_reader
 }  // namespace esphome

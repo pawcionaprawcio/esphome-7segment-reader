@@ -13,9 +13,9 @@ esp32:
 external_components:
   - source:
       type: git
-      url: https://github.com/pawcionaprawcio/esphome_digit_number
+      url: https://github.com/pawcionaprawcio/esphome-7segment-reader
       ref: main
-    components: [digit_number]
+    components: [seven_segment_reader]
     refresh: always
 
 logger:
@@ -65,7 +65,7 @@ esp32_camera_web_server:
     mode: snapshot
 
 sensor:
-  - platform: digit_number
+  - platform: seven_segment_reader
     name: "Distance"
     camera_id: my_camera
     unit_of_measurement: "mm"   # change to match your display (cm, kg, °C, etc.)

@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace esphome {
-namespace digit_number {
+namespace seven_segment_reader {
 
 enum class PixFmt : uint8_t { GRAY = 0, RGB565 = 1 };
 
@@ -99,5 +99,5 @@ inline uint8_t sample_brightness(const uint8_t *buf, uint16_t fw, uint16_t fh,
 }
 
 }  // namespace digit_logic
-}  // namespace digit_number
+}  // namespace seven_segment_reader
 }  // namespace esphome

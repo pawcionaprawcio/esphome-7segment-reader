@@ -1,4 +1,4 @@
-#include "digit_number.h"
+#include "seven_segment_reader.h"
 #include "esphome/core/log.h"
 #include "esp_camera.h"
 #include <algorithm>
@@ -6,12 +6,12 @@
 #include <cstdio>
 
 namespace esphome {
-namespace digit_number {
+namespace seven_segment_reader {
 
-static const char *const TAG = "digit_number";
+static const char *const TAG = "seven_segment_reader";
 
-void DigitNumber::setup() {
-  ESP_LOGI(TAG, "digit_number v%s", DIGIT_NUMBER_VERSION);
+void SevenSegmentReader::setup() {
+  ESP_LOGI(TAG, "seven_segment_reader v%s", SEVEN_SEGMENT_READER_VERSION);
   last_valid_ms_ = millis();
   geometries_.reserve(digits_.size());
   for (const auto &da : digits_)
@@ -28,7 +28,7 @@ void DigitNumber::setup() {
   }
 }
 
-void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
+void SevenSegmentReader::on_camera_image(const std::shared_ptr<camera::CameraImage> & /*image*/) {
   if (paused_) return;
   const uint32_t now = millis();
   if (now - last_publish_ms_ >= update_interval_ms_) {
@@ -37,17 +37,17 @@ void DigitNumber::on_camera_image(const std::shared_ptr<camera::CameraImage> & /
   }
 }
 
-void DigitNumber::publish_all_(const char *state) {
+void SevenSegmentReader::publish_all_(const char *state) {
   last_state_str_ = state;
   publish_state(last_valid_);
   if (last_state_sensor_)
     last_state_sensor_->publish_state(state);
 }
 
-void DigitNumber::process_image_() {
+void SevenSegmentReader::process_image_() {
   const int num_digits = (int)digits_.size();
 
-  ESP_LOGD(TAG, "[v" DIGIT_NUMBER_VERSION "] processing frame");
+  ESP_LOGD(TAG, "[v" SEVEN_SEGMENT_READER_VERSION "] processing frame");
   camera_fb_t *fb = esp_camera_fb_get();
   if (!fb) {
     ESP_LOGE(TAG, "esp_camera_fb_get failed");
@@ -214,7 +214,7 @@ void DigitNumber::process_image_() {
     last_state_sensor_->publish_state("ok");
 }
 
-void DigitNumber::burst_tick_() {
+void SevenSegmentReader::burst_tick_() {
   if (burst_resting_) {
     if (millis() - burst_rest_start_ms_ < burst_current_rest_ms_) {
       ESP_LOGD(TAG, "Burst resting...");
@@ -331,7 +331,7 @@ void DigitNumber::burst_tick_() {
   }
 }
 
-void DigitNumber::force_burst_now() {
+void SevenSegmentReader::force_burst_now() {
   if (burst_resting_) {
     ESP_LOGI(TAG, "Take Measurement: cancelling rest, starting burst now");
     burst_resting_ = false;
@@ -346,7 +346,7 @@ void DigitNumber::force_burst_now() {
   }
 }
 
-void DigitNumber::do_trigger_() {
+void SevenSegmentReader::do_trigger_() {
   if (trigger_pin_ == nullptr) return;
   trigger_busy_ = true;
   trigger_start_ms_ = millis();
@@ -373,7 +373,7 @@ void DigitNumber::do_trigger_() {
   }
 }
 
-void DigitNumber::trigger_done_() {
+void SevenSegmentReader::trigger_done_() {
   trigger_busy_ = false;
   if (pending_pause_) {
     pending_pause_ = false;
@@ -382,7 +382,7 @@ void DigitNumber::trigger_done_() {
   }
 }
 
-void DigitNumber::wait_for_ok_() {
+void SevenSegmentReader::wait_for_ok_() {
   if (last_state_str_ == "ok" && last_valid_ms_ > trigger_start_ms_) {
     ESP_LOGD(TAG, "Trigger: got ok (fresh read after trigger)");
     trigger_done_();
@@ -397,5 +397,5 @@ void DigitNumber::wait_for_ok_() {
   set_timeout("wait_ok", 200, [this]() { wait_for_ok_(); });
 }
 
-}  // namespace digit_number
+}  // namespace seven_segment_reader
 }  // namespace esphome

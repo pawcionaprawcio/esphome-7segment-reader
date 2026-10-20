@@ -1,8 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "digit_number/digit_logic.h"
+#include "seven_segment_reader/digit_logic.h"
 
-using namespace esphome::digit_number;
+using namespace esphome::seven_segment_reader;
 
 // ---- decode_digit ----
 

@@ -1,4 +1,4 @@
-# digit_number
+# esphome-7segment-reader
 
 ESPHome external component that reads a multi-digit 7-segment display via ESP32-CAM and publishes the value as a millimeter integer sensor. The number of digits is defined by the length of the `digits:` list in config — no fixed limit.
 
@@ -30,9 +30,9 @@ Designed for close-up camera mounting where the display fills most of the frame.
 external_components:
   - source:
       type: git
-      url: https://github.com/pawcionaprawcio/esphome_digit_number
+      url: https://github.com/pawcionaprawcio/esphome-7segment-reader
       ref: main
-    components: [digit_number]
+    components: [seven_segment_reader]
     refresh: always
 ```
 
@@ -139,8 +139,8 @@ You can also paste an existing `digits:` block from `config.yaml` into the **Imp
 
 6. Flash and watch the debug log:
    ```
-   [D][digit_number]: Digit 0: bitmask=0b0111111 thresh=128 -> 0
-   [D][digit_number]: Publishing value: 223 mm
+   [D][seven_segment_reader]: Digit 0: bitmask=0b0111111 thresh=128 -> 0
+   [D][seven_segment_reader]: Publishing value: 223 mm
    ```
    Adjust coordinates if segments decode incorrectly.
 
@@ -154,7 +154,7 @@ esp32_camera:
   resolution: SVGA          # 800x600 recommended
 
 sensor:
-  - platform: digit_number
+  - platform: seven_segment_reader
     name: "Distance"
     camera_id: my_camera
     unit_of_measurement: "mm"   # optional, default: mm — change to cm, kg, °C, etc.
