@@ -71,4 +71,4 @@ sensor:
       # ... remaining digits
 ```
 
-See the main [README](../README.md) and [`example_config.yaml`](../example_config.yaml) for full pin configuration.
+See the main [README](../README.md) and [`example_config.yaml`](../example_config.yaml) for full pin configuration. With `trigger_pin` keep `jpeg_quality: 0` and `internal: true` on `esp32_camera` — otherwise frames streamed to Home Assistant block the main loop and trigger timing becomes unreliable (see [Performance](../README.md#performance)).

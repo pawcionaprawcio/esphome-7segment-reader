@@ -15,8 +15,7 @@ Designed for close-up camera mounting where the display fills most of the frame.
 5. Bitmask is looked up in the standard 7-segment truth table → digit 0–9
 6. Value = `Σ d[i] × 10^(N–1–i)` → published as sensor in mm
 
-**Display off** (all samples below `display_off_threshold`): publishes `NaN`.  
-**Unknown bitmask** (unrecognised segment pattern): publishes `NaN`.
+**Display off** (all samples below `display_off_threshold`) or **unknown bitmask** (unrecognised segment pattern): no new value is read; `last_state` reports `off` / `fail` (see [Sensor output](#sensor-output)).
 
 ## Requirements
 
@@ -108,7 +107,7 @@ The repository includes a browser-based calibration tool — open `calibration.h
 
 **Workflow:**
 
-1. Save several snapshots from `http://<device-ip>:8080` into one folder.
+1. Save several snapshots from `http://<device-ip>:8080` into one folder (requires `jpeg_quality` > 0, see [Performance](#performance)).
 2. Click **Choose Folder** and select that folder.
 3. Click anchor buttons (`a1`, `d1`, `b1`, …) and place them on the image by clicking the corresponding segment centers. Use `+` to add more digits.
 4. Navigate through all saved images with **← Prev / Next →** (or arrow keys) — verify that the derived segment markers (blue crosshairs) land correctly on segments across different frames.
@@ -126,6 +125,8 @@ You can also paste an existing `digits:` block from `config.yaml` into the **Imp
        mode: snapshot
    ```
 
+   Snapshots are viewable only with `jpeg_quality` > 0 in `esp32_camera` (e.g. `10`). Use it while calibrating, then switch back to `jpeg_quality: 0` (see [Performance](#performance)).
+
 2. Open `http://<device-ip>:8080` and save a snapshot.
 
 3. Open the snapshot in any image editor (GIMP, Photoshop, even Paint).
@@ -137,10 +138,10 @@ You can also paste an existing `digits:` block from `config.yaml` into the **Imp
 
 5. Fill the coordinates into the YAML config (see example below).
 
-6. Flash and watch the debug log:
+6. Flash and watch the log. Per-digit segment brightness is logged at `VERBOSE` level (`logger: level: VERBOSE`):
    ```
-   [D][seven_segment_reader]: Digit 0: bitmask=0b0111111 thresh=128 -> 0
-   [D][seven_segment_reader]: Publishing value: 223 mm
+   [V][seven_segment_reader]: Digit 0: bg=21 thresh=118 bitmask=0x3F (segs a=210 b=205 c=198 d=215 e=201 f=199 g=24)
+   [D][seven_segment_reader]: Publishing value: 223.0000 (raw=223)
    ```
    Adjust coordinates if segments decode incorrectly.
 
@@ -152,6 +153,8 @@ esp32_camera:
   # ... pin config for your board ...
   pixel_format: GRAYSCALE
   resolution: SVGA          # 800x600 recommended
+  jpeg_quality: 0           # raw frames, see Performance
+  internal: true            # don't stream frames to Home Assistant, see Performance
 
 sensor:
   - platform: seven_segment_reader
@@ -207,7 +210,7 @@ sensor:
 | `burst_mode.rest_duration` | duration | `5min` | Pause between bursts |
 | `burst_mode.trigger_pulse` | duration | `300ms` | Duration of each HIGH pulse sent to `trigger_pin` |
 | `burst_mode.trigger_cold_wait` | duration | `2s` | Pause between the two pulses on cold start (display `off`) |
-| `burst_mode.trigger_timeout_warm` | duration | `6s` | Max wait for valid reading after warm-start trigger |
+| `burst_mode.trigger_timeout_warm` | duration | `6s` | Max wait for valid reading after warm-start trigger; also max wait for the display to clear to `----` before the measure press |
 | `burst_mode.trigger_timeout_cold` | duration | `15s` | Max wait for valid reading after cold-start trigger |
 | `burst_mode.delta_threshold` | float | `5.0` | Value change considered significant (in sensor units); triggers shortened rest |
 | `burst_mode.delta_rest_duration` | duration | `60s` | Shortened rest duration when delta ≥ `delta_threshold` |
@@ -221,14 +224,27 @@ sensor:
 | `RGB565` | Supported. Converted to grayscale via luma coefficients |
 | `JPEG` | **Not supported.** Too expensive to decode on ESP32 |
 
-**`jpeg_quality`:** with `jpeg_quality: 0` (the `esp32_camera` default for non-JPEG formats) the component reads pixels straight from the frame the camera delivers. With `jpeg_quality > 0`, `esp32_camera` converts every frame to JPEG for the web server / Home Assistant, and the component must pull a separate raw frame with `esp_camera_fb_get()`, which blocks the main loop for up to ~1 s per frame (a warning is logged once). Trade-off: `jpeg_quality: 0` makes processing fast, but the snapshot web server then serves raw pixels instead of a viewable JPEG — set it temporarily to e.g. `10` when you need snapshots for calibration.
+## Performance
+
+Frame processing itself takes a few milliseconds. Two `esp32_camera` settings decide whether the main loop stays responsive — this matters for burst mode, where trigger pulses and timeouts run on the main loop:
+
+```yaml
+esp32_camera:
+  jpeg_quality: 0   # deliver raw GRAYSCALE frames
+  internal: true    # no camera entity in Home Assistant
+```
+
+- **`internal: true`** — without it the API sends every camera frame (idle frames included, ~480 KB raw at 800×600 GRAYSCALE) to Home Assistant, encrypting it inside the camera loop. This blocks the main loop for ~2 s per frame (`esp32_camera took a long time…` / `api took a long time…` warnings), stretching trigger pulses and timeouts.
+- **`jpeg_quality: 0`** — the component reads pixels straight from the frame the camera delivers. With `jpeg_quality` > 0, `esp32_camera` converts every frame to JPEG and the component has to pull a separate raw frame with `esp_camera_fb_get()`, which blocks the main loop (a warning is logged once).
+
+Trade-off: with `jpeg_quality: 0` the snapshot web server serves raw pixels instead of a viewable JPEG. Set it temporarily to e.g. `10` when you need snapshots for calibration.
 
 ## Sensor output
 
 - **Unit**: configurable via `unit_of_measurement` (default: `mm`)
 - **Accuracy**: configurable via `accuracy_decimals` (default: `0` — integer)
 - **Range**: 0–9999 (4 digits) or limited by `max_value`
-- **NaN** published when: display off, unknown segment pattern, camera unavailable
+- **Without burst mode**: every processed frame publishes a value — the new reading, or the last valid one on `off` / `ready` / `fail` frames (`NaN` until the first successful read)
 - **Burst mode** (`trigger_pin` set): the value is published only once per burst, at burst end. One reading is collected per trigger (the first fresh read after the measure press); the published candidate is the reading closest to the previous burst value, or the median on the first burst after boot. `last_state` is published before the value, so `on_value` automations see `ok`.
 
 ### `last_state` values
