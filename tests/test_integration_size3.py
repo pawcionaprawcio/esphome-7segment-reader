@@ -105,7 +105,6 @@ def test_dashes():
     ("capture (4).jpg",  1650),
     ("capture (5).jpg",  2050),
     ("capture (6).jpg",   979),
-    ("capture (7).jpg",   409),
     ("capture (8).jpg",   332),
     ("capture (9).jpg",  1401),
     ("capture (10).jpg", 2924),

@@ -1,6 +1,6 @@
 #pragma once
 
-#define SEVEN_SEGMENT_READER_VERSION "3.0.2"
+#define SEVEN_SEGMENT_READER_VERSION "3.0.3"
 
 #include "digit_logic.h"
 #include <array>
